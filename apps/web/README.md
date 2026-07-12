@@ -2,6 +2,16 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Copy `.env.example` to `.env.local` and configure the API and Supabase project:
+
+```bash
+cp .env.example .env.local
+```
+
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are
+browser-visible by design. Never use a service-role key or JWT signing secret in
+a `NEXT_PUBLIC_` variable.
+
 First, run the development server:
 
 ```bash
@@ -15,6 +25,12 @@ bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+The landing route provides email/password sign-up and sign-in. `/dashboard` is
+protected twice: Next.js 16 `proxy.ts` refreshes the cookie-backed Supabase
+session and redirects anonymous requests, while the dashboard Server Component
+verifies claims again before rendering protected UI. Sign-out clears the
+Supabase cookies and returns to the landing page.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

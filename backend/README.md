@@ -62,14 +62,30 @@ Interactive documentation is available at `http://127.0.0.1:8000/docs`.
 - `app/persistence_service.py`: ownership, transactions, validation, and
   database-error translation.
 - `app/persistence_routes.py`: persisted workout and session endpoints.
-- `app/development_user.py`: isolated temporary server-owned user identity.
+- `app/auth.py`: Supabase JWT verification and local user-profile synchronization.
 - `migrations/`: Alembic environment and versioned schema changes.
 - `app/models.py` and `app/workout_generator.py`: compatibility exports for
   older imports.
 
-The temporary development user has a fixed server-owned UUID. Persistence
-requests never accept an ownership ID from the client. Replace this module with
-authenticated identity resolution when authentication is introduced.
+Persistence requests require a Supabase bearer access token. Ownership always
+comes from the verified token subject; request bodies never accept a user ID.
+The first authenticated request creates or updates the matching local `users`
+record.
+
+## Supabase authentication
+
+Configure Supabase Auth to use an asymmetric JWT signing key (RS256 or ES256),
+then set `SUPABASE_URL`, `SUPABASE_JWT_ISSUER`, and
+`SUPABASE_JWT_AUDIENCE=authenticated`. `SUPABASE_JWKS_URL` is optional and is
+normally derived from the issuer.
+
+The backend downloads only public verification keys from the project's JWKS
+endpoint. It does not need the legacy JWT secret or a service-role key. All
+persistence calls require:
+
+```text
+Authorization: Bearer <supabase-access-token>
+```
 
 ## Generate a workout
 
@@ -105,7 +121,7 @@ optional `exercise_id` on each interval. Rest intervals have no exercise ID.
 ## Persistence API
 
 - `POST /workouts`: persist a generated workout, optionally with a saved name.
-- `GET /workouts?page=1&page_size=20`: list the development user's workouts.
+- `GET /workouts?page=1&page_size=20`: list the authenticated user's workouts.
 - `GET /workouts/{id}`: get one workout.
 - `DELETE /workouts/{id}`: delete one workout.
 - `POST /workout-sessions`: persist a completed or ended-early session.

@@ -40,6 +40,17 @@ Start FastAPI so it listens on your network (`--host 0.0.0.0`), and keep the Mac
 and phone on the same local network. Public production builds should use an
 HTTPS API URL.
 
+## Supabase authentication
+
+Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in
+`.env.local`. The publishable key is designed for client distribution; never
+put a service-role key or JWT signing secret in an `EXPO_PUBLIC_` variable.
+
+The auth provider restores the persisted Supabase session from AsyncStorage,
+refreshes access tokens while the native app is active, and holds protected
+Expo Router screens behind a loading gate until restoration finishes. Email
+confirmation behavior follows the Supabase project's Auth settings.
+
 ## Workout timer and background behavior
 
 The active workout timer uses wall-clock timestamps instead of relying on every

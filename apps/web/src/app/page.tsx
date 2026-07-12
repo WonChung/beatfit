@@ -1,5 +1,5 @@
-import WorkoutApp from "@/components/workout-app";
+import AuthForm from '@/components/auth-form';
 
 export default function Home() {
-  return <WorkoutApp />;
+  return <AuthForm />;
 }

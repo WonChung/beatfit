@@ -24,8 +24,8 @@ from app.db_models import (
     WorkoutBlock,
     WorkoutInterval,
     WorkoutSession,
+    User,
 )
-from app.development_user import ensure_development_user
 
 
 class PersistenceNotFoundError(Exception):
@@ -44,9 +44,8 @@ class PersistenceUnavailableError(Exception):
     pass
 
 
-def create_workout(database: Session, payload: WorkoutCreate) -> PersistedWorkout:
+def create_workout(database: Session, user: User, payload: WorkoutCreate) -> PersistedWorkout:
     _validate_blocks(payload.blocks)
-    user = ensure_development_user(database)
     workout = Workout(
         user_id=user.id,
         name=payload.name,
@@ -90,8 +89,7 @@ def create_workout(database: Session, payload: WorkoutCreate) -> PersistedWorkou
     return serialize_workout(workout)
 
 
-def list_workouts(database: Session, page: int, page_size: int) -> Page[PersistedWorkout]:
-    user = ensure_development_user(database)
+def list_workouts(database: Session, user: User, page: int, page_size: int) -> Page[PersistedWorkout]:
     total = database.scalar(
         select(func.count()).select_from(Workout).where(Workout.user_id == user.id)
     ) or 0
@@ -111,22 +109,21 @@ def list_workouts(database: Session, page: int, page_size: int) -> Page[Persiste
     )
 
 
-def get_workout(database: Session, workout_id: uuid.UUID) -> PersistedWorkout:
-    workout = _owned_workout(database, workout_id)
+def get_workout(database: Session, user: User, workout_id: uuid.UUID) -> PersistedWorkout:
+    workout = _owned_workout(database, user, workout_id)
     return serialize_workout(workout)
 
 
-def delete_workout(database: Session, workout_id: uuid.UUID) -> None:
-    workout = _owned_workout(database, workout_id)
+def delete_workout(database: Session, user: User, workout_id: uuid.UUID) -> None:
+    workout = _owned_workout(database, user, workout_id)
     database.delete(workout)
     _commit(database)
 
 
 def create_session(
-    database: Session, payload: WorkoutSessionCreate
+    database: Session, user: User, payload: WorkoutSessionCreate
 ) -> PersistedWorkoutSession:
-    user = ensure_development_user(database)
-    workout = _owned_workout(database, payload.workout_id)
+    workout = _owned_workout(database, user, payload.workout_id)
     total_intervals = sum(len(block.intervals) for block in workout.blocks)
     _validate_session_counts(
         completed_intervals=payload.completed_intervals,
@@ -163,10 +160,11 @@ def create_session(
 
 def update_session(
     database: Session,
+    user: User,
     session_id: uuid.UUID,
     payload: WorkoutSessionUpdate,
 ) -> PersistedWorkoutSession:
-    session = _owned_session(database, session_id)
+    session = _owned_session(database, user, session_id)
     updates = payload.model_dump(exclude_unset=True, exclude={"feedback"})
     if "status" in updates:
         updates["status"] = updates["status"].value
@@ -196,9 +194,8 @@ def update_session(
 
 
 def list_sessions(
-    database: Session, page: int, page_size: int
+    database: Session, user: User, page: int, page_size: int
 ) -> Page[PersistedWorkoutSession]:
-    user = ensure_development_user(database)
     total = database.scalar(
         select(func.count()).select_from(WorkoutSession).where(WorkoutSession.user_id == user.id)
     ) or 0
@@ -293,8 +290,7 @@ def _generated_workout(workout: Workout) -> GeneratedWorkout:
     )
 
 
-def _owned_workout(database: Session, workout_id: uuid.UUID) -> Workout:
-    user = ensure_development_user(database)
+def _owned_workout(database: Session, user: User, workout_id: uuid.UUID) -> Workout:
     workout = database.scalar(
         select(Workout)
         .where(Workout.id == workout_id, Workout.user_id == user.id)
@@ -305,8 +301,7 @@ def _owned_workout(database: Session, workout_id: uuid.UUID) -> Workout:
     return workout
 
 
-def _owned_session(database: Session, session_id: uuid.UUID) -> WorkoutSession:
-    user = ensure_development_user(database)
+def _owned_session(database: Session, user: User, session_id: uuid.UUID) -> WorkoutSession:
     session = database.scalar(
         select(WorkoutSession)
         .where(WorkoutSession.id == session_id, WorkoutSession.user_id == user.id)

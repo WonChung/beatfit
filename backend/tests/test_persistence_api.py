@@ -2,13 +2,30 @@ from datetime import UTC, datetime, timedelta
 import os
 
 import pytest
+import jwt
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
+from app.auth import get_token_verifier
 from app.main import app
+
+
+USER_ONE_ID = "11111111-1111-4111-8111-111111111111"
+USER_TWO_ID = "22222222-2222-4222-8222-222222222222"
+
+
+class TestTokenVerifier:
+    def verify(self, token: str) -> dict:
+        if token == "valid-user-one":
+            return {"sub": USER_ONE_ID, "email": "one@example.com", "role": "authenticated"}
+        if token == "valid-user-two":
+            return {"sub": USER_TWO_ID, "email": "two@example.com", "role": "authenticated"}
+        if token == "expired":
+            raise jwt.ExpiredSignatureError()
+        raise jwt.InvalidTokenError()
 
 
 @pytest.fixture()
@@ -46,7 +63,9 @@ def client() -> TestClient:
             database.close()
 
     app.dependency_overrides[get_db] = override_database
+    app.dependency_overrides[get_token_verifier] = lambda: TestTokenVerifier()
     with TestClient(app) as test_client:
+        test_client.headers["Authorization"] = "Bearer valid-user-one"
         yield test_client
     app.dependency_overrides.clear()
     if not test_database_url:
@@ -149,6 +168,30 @@ def test_not_found_validation_and_untrusted_owner_rejection(client: TestClient):
     assert invalid.status_code == 422
     assert untrusted_owner.status_code == 422
     assert invalid_page.status_code == 422
+
+
+def test_authentication_errors_and_profile_sync(client: TestClient):
+    client.headers.pop("Authorization")
+    assert client.get("/workouts").status_code == 401
+
+    assert client.get("/workouts", headers={"Authorization": "Bearer invalid"}).status_code == 401
+    assert client.get("/workouts", headers={"Authorization": "Bearer expired"}).status_code == 401
+
+    authenticated = client.get(
+        "/workouts", headers={"Authorization": "Bearer valid-user-one"}
+    )
+    assert authenticated.status_code == 200
+
+
+def test_cross_user_workout_access_is_denied(client: TestClient):
+    created = client.post("/workouts", json=_workout_payload())
+    assert created.status_code == 201
+    workout_id = created.json()["id"]
+
+    other_user_headers = {"Authorization": "Bearer valid-user-two"}
+    assert client.get(f"/workouts/{workout_id}", headers=other_user_headers).status_code == 404
+    assert client.delete(f"/workouts/{workout_id}", headers=other_user_headers).status_code == 404
+    assert client.get("/workouts", headers=other_user_headers).json()["total"] == 0
 
 
 def _workout_payload(name: str | None = None) -> dict:

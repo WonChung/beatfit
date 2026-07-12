@@ -19,6 +19,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { generateWorkout } from '@/services/api';
 import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
+import { useAuth } from '@/state/auth-store';
 import type {
   Difficulty,
   Equipment,
@@ -55,6 +56,7 @@ const EQUIPMENT: readonly { label: string; value: Equipment }[] = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { signOut, user } = useAuth();
   const { recordGeneratedWorkout } = usePersistenceStore();
   const { request: previousRequest, saveGeneration } = useWorkoutStore();
   const previousSong = previousRequest?.songs[0];
@@ -137,6 +139,10 @@ export default function HomeScreen() {
               <ThemedText themeColor="textSecondary">
                 Turn one song into a timed workout.
               </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">{user?.email}</ThemedText>
+              <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.signOutButton}>
+                <ThemedText type="smallBold">Sign out</ThemedText>
+              </Pressable>
             </View>
 
             <View style={styles.libraryLinks}>
@@ -372,6 +378,7 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   header: { gap: Spacing.one },
+  signOutButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
   libraryLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   libraryButton: {
     minHeight: 44,
