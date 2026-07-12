@@ -1,0 +1,110 @@
+from collections.abc import Callable
+from typing import TypeVar
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy.orm import Session
+
+from app.api_models import (
+    Page,
+    PersistedWorkout,
+    PersistedWorkoutSession,
+    WorkoutCreate,
+    WorkoutSessionCreate,
+    WorkoutSessionUpdate,
+)
+from app.database import get_db
+from app.persistence_service import (
+    PersistenceConflictError,
+    PersistenceNotFoundError,
+    PersistenceUnavailableError,
+    PersistenceValidationError,
+    create_session,
+    create_workout,
+    delete_workout,
+    get_workout,
+    list_sessions,
+    list_workouts,
+    update_session,
+)
+
+
+router = APIRouter()
+Result = TypeVar("Result")
+
+
+@router.post("/workouts", response_model=PersistedWorkout, status_code=status.HTTP_201_CREATED)
+def persist_workout(
+    payload: WorkoutCreate,
+    database: Session = Depends(get_db),
+) -> PersistedWorkout:
+    return _safe_database_call(lambda: create_workout(database, payload))
+
+
+@router.get("/workouts", response_model=Page[PersistedWorkout])
+def get_workouts(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    database: Session = Depends(get_db),
+) -> Page[PersistedWorkout]:
+    return _safe_database_call(lambda: list_workouts(database, page, page_size))
+
+
+@router.get("/workouts/{workout_id}", response_model=PersistedWorkout)
+def get_persisted_workout(
+    workout_id: UUID,
+    database: Session = Depends(get_db),
+) -> PersistedWorkout:
+    return _safe_database_call(lambda: get_workout(database, workout_id))
+
+
+@router.delete("/workouts/{workout_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_workout(
+    workout_id: UUID,
+    database: Session = Depends(get_db),
+) -> Response:
+    _safe_database_call(lambda: delete_workout(database, workout_id))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/workout-sessions",
+    response_model=PersistedWorkoutSession,
+    status_code=status.HTTP_201_CREATED,
+)
+def persist_session(
+    payload: WorkoutSessionCreate,
+    database: Session = Depends(get_db),
+) -> PersistedWorkoutSession:
+    return _safe_database_call(lambda: create_session(database, payload))
+
+
+@router.patch("/workout-sessions/{session_id}", response_model=PersistedWorkoutSession)
+def patch_session(
+    session_id: UUID,
+    payload: WorkoutSessionUpdate,
+    database: Session = Depends(get_db),
+) -> PersistedWorkoutSession:
+    return _safe_database_call(lambda: update_session(database, session_id, payload))
+
+
+@router.get("/workout-sessions", response_model=Page[PersistedWorkoutSession])
+def get_sessions(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    database: Session = Depends(get_db),
+) -> Page[PersistedWorkoutSession]:
+    return _safe_database_call(lambda: list_sessions(database, page, page_size))
+
+
+def _safe_database_call(operation: Callable[[], Result]) -> Result:
+    try:
+        return operation()
+    except PersistenceNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except PersistenceValidationError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except PersistenceConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except PersistenceUnavailableError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error

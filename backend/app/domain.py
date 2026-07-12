@@ -54,6 +54,17 @@ class Intensity(StrEnum):
     high = "high"
 
 
+class SessionStatus(StrEnum):
+    completed = "completed"
+    ended_early = "ended_early"
+
+
+class FeedbackRating(StrEnum):
+    too_easy = "too_easy"
+    about_right = "about_right"
+    too_hard = "too_hard"
+
+
 @dataclass(frozen=True, slots=True)
 class Exercise:
     id: str
