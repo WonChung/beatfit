@@ -43,3 +43,22 @@ export interface GenerateWorkoutResponse {
   equipment: Equipment[];
   blocks: WorkoutBlock[];
 }
+
+export type WorkoutSessionStatus = 'completed' | 'ended_early';
+
+export type WorkoutFeedback = 'too_easy' | 'about_right' | 'too_hard';
+
+export interface WorkoutSession {
+  id: string;
+  workout: GenerateWorkoutResponse;
+  startTime: string;
+  endTime: string;
+  plannedDurationSeconds: number;
+  actualElapsedDurationSeconds: number;
+  totalIntervals: number;
+  completedIntervals: number;
+  completedWorkIntervals: number;
+  completedSongBlocks: number;
+  status: WorkoutSessionStatus;
+  feedback?: WorkoutFeedback;
+}

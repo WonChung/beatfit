@@ -55,6 +55,7 @@ describe('workout timer transitions', () => {
     expect(advanced.currentIndex).toBe(2);
     expect(timeline[advanced.currentIndex].blockIndex).toBe(1);
     expect(getRemainingTimeMs(advanced, 5500)).toBe(2500);
+    expect(advanced.completedIndices).toEqual([0, 1]);
   });
 
   it('skips to the next interval and restarts it at full duration', () => {
@@ -64,6 +65,7 @@ describe('workout timer transitions', () => {
 
     expect(skipped.currentIndex).toBe(1);
     expect(getRemainingTimeMs(skipped, 3000)).toBe(5000);
+    expect(skipped.completedIndices).toEqual([]);
   });
 
   it('returns to the previous interval at full duration', () => {
@@ -77,6 +79,7 @@ describe('workout timer transitions', () => {
 
     expect(previous.currentIndex).toBe(0);
     expect(getRemainingTimeMs(previous, 2000)).toBe(10_000);
+    expect(previous.completedIndices).toEqual([]);
   });
 
   it('safely stays on the first interval when previous is requested', () => {
@@ -108,7 +111,9 @@ describe('workout timer transitions', () => {
   it('completes after the final interval', () => {
     const timeline = buildWorkoutTimeline(createWorkout([[2]]));
     const running = startWorkoutTimer(createWorkoutTimerState(timeline), 0);
-    expect(reconcileWorkoutTimer(running, timeline, 2000).status).toBe('completed');
+    const completed = reconcileWorkoutTimer(running, timeline, 2000);
+    expect(completed.status).toBe('completed');
+    expect(completed.completedIndices).toEqual([0]);
   });
 
   it('immediately completes an empty workout', () => {

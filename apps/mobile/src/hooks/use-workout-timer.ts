@@ -21,7 +21,7 @@ import {
 } from '@/timer/workout-timer';
 
 interface UseWorkoutTimerOptions {
-  onComplete: () => void;
+  onComplete: (completedIndices: number[]) => void;
 }
 
 export function useWorkoutTimer(
@@ -72,9 +72,9 @@ export function useWorkoutTimer(
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
         () => undefined
       );
-      onComplete();
+      onComplete(timerState.completedIndices);
     }
-  }, [onComplete, timeline.length, timerState.status]);
+  }, [onComplete, timeline.length, timerState.completedIndices, timerState.status]);
 
   const runTransition = useCallback(
     (
@@ -118,6 +118,7 @@ export function useWorkoutTimer(
     current: timeline[timerState.currentIndex] ?? null,
     next: timeline[timerState.currentIndex + 1] ?? null,
     currentIndex: timerState.currentIndex,
+    completedIndices: timerState.completedIndices,
     remainingMs: getRemainingTimeMs(timerState, nowMs),
     elapsedMs: getElapsedWorkoutTimeMs(timerState, timeline, nowMs),
     totalDurationMs: getTotalTimelineDurationMs(timeline),

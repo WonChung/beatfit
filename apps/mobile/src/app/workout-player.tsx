@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { useWorkoutTimer } from '@/hooks/use-workout-timer';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutTimerStatus } from '@/timer/workout-timer';
 import { formatIntervalType, formatSeconds } from '@/utils/workout-format';
+import { createWorkoutSession } from '@/utils/workout-session';
 
 const TYPE_COLORS: Record<string, string> = {
   warmup: '#2563eb',
@@ -20,12 +21,50 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function WorkoutPlayerScreen() {
   const router = useRouter();
-  const { workout } = useWorkoutStore();
+  const { workout, saveSession } = useWorkoutStore();
+  const sessionStartedAt = useRef<number | null>(null);
+  const completedIndicesRef = useRef<number[]>([]);
   const handleComplete = useCallback(
-    () => router.replace('/workout-complete?status=completed'),
-    [router]
+    (completedIndices: number[]) => {
+      if (!workout) return;
+      const endTimeMs = Date.now();
+      saveSession(
+        createWorkoutSession({
+          workout,
+          startTimeMs: sessionStartedAt.current ?? endTimeMs,
+          endTimeMs,
+          completedIndices,
+          status: 'completed',
+        })
+      );
+      router.replace('/workout-complete');
+    },
+    [router, saveSession, workout]
   );
   const timer = useWorkoutTimer(workout, { onComplete: handleComplete });
+  useEffect(() => {
+    completedIndicesRef.current = timer.completedIndices;
+  }, [timer.completedIndices]);
+
+  function handleStart() {
+    sessionStartedAt.current ??= Date.now();
+    timer.start();
+  }
+
+  function finishEarly() {
+    if (!workout) return;
+    const endTimeMs = Date.now();
+    saveSession(
+      createWorkoutSession({
+        workout,
+        startTimeMs: sessionStartedAt.current ?? endTimeMs,
+        endTimeMs,
+        completedIndices: completedIndicesRef.current,
+        status: 'ended_early',
+      })
+    );
+    router.replace('/workout-complete');
+  }
 
   function handleEndWorkout() {
     Alert.alert(
@@ -36,7 +75,7 @@ export default function WorkoutPlayerScreen() {
         {
           text: 'End Workout',
           style: 'destructive',
-          onPress: () => router.replace('/workout-complete?status=ended-early'),
+          onPress: finishEarly,
         },
       ]
     );
@@ -127,7 +166,7 @@ export default function WorkoutPlayerScreen() {
           <View style={styles.controls}>
             <PrimaryTimerControl
               status={timer.status}
-              onStart={timer.start}
+              onStart={handleStart}
               onPause={timer.pause}
               onResume={timer.resume}
             />
