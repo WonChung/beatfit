@@ -17,6 +17,10 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="workout-preview" options={{ title: 'Workout Preview' }} />
           <Stack.Screen name="workout-player" options={{ title: 'Workout' }} />
+          <Stack.Screen
+            name="workout-complete"
+            options={{ title: 'Workout Complete', gestureEnabled: false }}
+          />
         </Stack>
       </WorkoutProvider>
     </ThemeProvider>

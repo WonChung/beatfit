@@ -40,6 +40,18 @@ Start FastAPI so it listens on your network (`--host 0.0.0.0`), and keep the Mac
 and phone on the same local network. Public production builds should use an
 HTTPS API URL.
 
+## Workout timer and background behavior
+
+The active workout timer uses wall-clock timestamps instead of relying on every
+JavaScript interval tick firing on time. When the app returns to the foreground,
+it recalculates the current interval and can catch up across multiple intervals.
+
+This is not background execution: iOS, Android, and browsers may suspend the
+JavaScript process while BeatFit is not active. The app cannot guarantee haptic
+feedback, screen updates, or completion navigation until it is foregrounded
+again. A future background-audio or notification feature would require native
+background capabilities that are intentionally outside the current timer scope.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
