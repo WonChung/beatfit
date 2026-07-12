@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,13 +17,12 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { generateWorkout } from '@/services/api';
+import { useWorkoutStore } from '@/state/workout-store';
 import type {
   Difficulty,
   Equipment,
   GenerateWorkoutRequest,
-  GenerateWorkoutResponse,
   MuscleGroup,
-  WorkoutBlock,
 } from '@/types/workout';
 import {
   durationToMilliseconds,
@@ -53,17 +53,29 @@ const EQUIPMENT: readonly { label: string; value: Equipment }[] = [
 ];
 
 export default function HomeScreen() {
+  const router = useRouter();
+  const { request: previousRequest, saveGeneration } = useWorkoutStore();
+  const previousSong = previousRequest?.songs[0];
   const submissionInProgress = useRef(false);
-  const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>('chest');
-  const [difficulty, setDifficulty] = useState<Difficulty>('intermediate');
-  const [equipment, setEquipment] = useState<Equipment>('bodyweight');
-  const [title, setTitle] = useState('Song 1');
-  const [artist, setArtist] = useState('Test Artist');
-  const [minutes, setMinutes] = useState('3');
-  const [seconds, setSeconds] = useState('45');
+  const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>(
+    previousRequest?.muscle_group ?? 'chest'
+  );
+  const [difficulty, setDifficulty] = useState<Difficulty>(
+    previousRequest?.difficulty ?? 'intermediate'
+  );
+  const [equipment, setEquipment] = useState<Equipment>(
+    previousRequest?.equipment[0] ?? 'bodyweight'
+  );
+  const [title, setTitle] = useState(previousSong?.title ?? 'Song 1');
+  const [artist, setArtist] = useState(previousSong?.artist ?? 'Test Artist');
+  const [minutes, setMinutes] = useState(() =>
+    String(Math.floor((previousSong?.duration_ms ?? 225_000) / 60_000))
+  );
+  const [seconds, setSeconds] = useState(() =>
+    String(Math.floor(((previousSong?.duration_ms ?? 225_000) % 60_000) / 1000))
+  );
   const [errors, setErrors] = useState<WorkoutFormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
-  const [workout, setWorkout] = useState<GenerateWorkoutResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleGenerateWorkout() {
@@ -92,7 +104,9 @@ export default function HomeScreen() {
     submissionInProgress.current = true;
     setIsLoading(true);
     try {
-      setWorkout(await generateWorkout(request));
+      const generatedWorkout = await generateWorkout(request);
+      saveGeneration(request, generatedWorkout);
+      router.push('/workout-preview');
     } catch (caughtError) {
       const message =
         caughtError instanceof Error ? caughtError.message : 'An unexpected error occurred.';
@@ -219,7 +233,6 @@ export default function HomeScreen() {
               )}
             </ThemedView>
 
-            {workout && <WorkoutResult workout={workout} />}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -322,66 +335,6 @@ function OptionGroup<T extends string>({
   );
 }
 
-function WorkoutResult({ workout }: { workout: GenerateWorkoutResponse }) {
-  return (
-    <View style={styles.results}>
-      <ThemedText type="smallBold" accessibilityRole="header">
-        Generated workout
-      </ThemedText>
-      {workout.blocks.map((block, index) => (
-        <WorkoutBlockResult
-          key={`${block.song.title}-${block.song.duration_ms}-${index}`}
-          block={block}
-        />
-      ))}
-    </View>
-  );
-}
-
-function WorkoutBlockResult({ block }: { block: WorkoutBlock }) {
-  return (
-    <ThemedView type="backgroundElement" style={styles.panel}>
-      <View style={styles.resultHeader}>
-        <View style={styles.songDetails}>
-          <ThemedText type="smallBold">{block.song.title}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {block.song.artist}
-          </ThemedText>
-        </View>
-        <ThemedText type="small" themeColor="textSecondary">
-          {formatTime(block.duration_seconds)}
-        </ThemedText>
-      </View>
-
-      <View style={styles.intervalList}>
-        {block.intervals.map((interval, index) => (
-          <ThemedView
-            key={`${interval.start_seconds}-${interval.end_seconds}-${index}`}
-            style={styles.intervalRow}>
-            <ThemedText type="code" style={styles.intervalTime}>
-              {formatTime(interval.start_seconds)}–{formatTime(interval.end_seconds)}
-            </ThemedText>
-            <View style={styles.intervalDetails}>
-              <ThemedText type="smallBold" style={styles.intervalType}>
-                {interval.type}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {interval.exercise}
-              </ThemedText>
-            </View>
-          </ThemedView>
-        ))}
-      </View>
-    </ThemedView>
-  );
-}
-
-function formatTime(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safeArea: { flex: 1 },
@@ -428,23 +381,4 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#ffffff', fontWeight: '700' },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   errorText: { color: '#dc2626' },
-  results: { gap: Spacing.three },
-  resultHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-    alignItems: 'flex-start',
-  },
-  songDetails: { flex: 1, gap: Spacing.one },
-  intervalList: { gap: Spacing.two },
-  intervalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.three,
-    padding: Spacing.three,
-    borderRadius: Spacing.two,
-  },
-  intervalTime: { width: 94 },
-  intervalDetails: { flex: 1, gap: Spacing.one },
-  intervalType: { textTransform: 'capitalize' },
 });
