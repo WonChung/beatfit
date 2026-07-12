@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.models import GenerateWorkoutRequest, GeneratedWorkout
-from app.workout_generator import generate_workout
+from app.routes import router
 
 
 app = FastAPI(title="BeatFit API")
@@ -20,12 +19,4 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-def health_check() -> dict[str, str]:
-    return {"status": "ok", "app": "BeatFit API"}
-
-
-@app.post("/workouts/generate", response_model=GeneratedWorkout)
-def create_workout(request: GenerateWorkoutRequest) -> GeneratedWorkout:
-    return generate_workout(request)
+app.include_router(router)
