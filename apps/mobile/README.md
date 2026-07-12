@@ -16,6 +16,30 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## BeatFit API configuration
+
+The app reads its backend URL from `EXPO_PUBLIC_API_BASE_URL`. Copy the example
+environment file before starting Expo:
+
+```bash
+cp .env.example .env.local
+```
+
+When the variable is not set, the centralized API client falls back to
+`http://127.0.0.1:8000` for local web and iOS Simulator development.
+
+`127.0.0.1` on a physical phone points to the phone itself, not your computer.
+To test with Expo Go on a phone, set the URL to your Mac's local network IP, for
+example:
+
+```text
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:8000
+```
+
+Start FastAPI so it listens on your network (`--host 0.0.0.0`), and keep the Mac
+and phone on the same local network. Public production builds should use an
+HTTPS API URL.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
