@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
+import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutTimerStatus } from '@/timer/workout-timer';
 import { formatIntervalType, formatSeconds } from '@/utils/workout-format';
@@ -21,25 +22,26 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function WorkoutPlayerScreen() {
   const router = useRouter();
+  const { recordSession } = usePersistenceStore();
   const { workout, saveSession } = useWorkoutStore();
   const sessionStartedAt = useRef<number | null>(null);
   const completedIndicesRef = useRef<number[]>([]);
   const handleComplete = useCallback(
-    (completedIndices: number[]) => {
+    async (completedIndices: number[]) => {
       if (!workout) return;
       const endTimeMs = Date.now();
-      saveSession(
-        createWorkoutSession({
-          workout,
-          startTimeMs: sessionStartedAt.current ?? endTimeMs,
-          endTimeMs,
-          completedIndices,
-          status: 'completed',
-        })
-      );
+      const session = createWorkoutSession({
+        workout,
+        startTimeMs: sessionStartedAt.current ?? endTimeMs,
+        endTimeMs,
+        completedIndices,
+        status: 'completed',
+      });
+      saveSession(session);
+      await recordSession(session).catch(() => undefined);
       router.replace('/workout-complete');
     },
-    [router, saveSession, workout]
+    [recordSession, router, saveSession, workout]
   );
   const timer = useWorkoutTimer(workout, { onComplete: handleComplete });
   useEffect(() => {
@@ -51,18 +53,18 @@ export default function WorkoutPlayerScreen() {
     timer.start();
   }
 
-  function finishEarly() {
+  async function finishEarly() {
     if (!workout) return;
     const endTimeMs = Date.now();
-    saveSession(
-      createWorkoutSession({
-        workout,
-        startTimeMs: sessionStartedAt.current ?? endTimeMs,
-        endTimeMs,
-        completedIndices: completedIndicesRef.current,
-        status: 'ended_early',
-      })
-    );
+    const session = createWorkoutSession({
+      workout,
+      startTimeMs: sessionStartedAt.current ?? endTimeMs,
+      endTimeMs,
+      completedIndices: completedIndicesRef.current,
+      status: 'ended_early',
+    });
+    saveSession(session);
+    await recordSession(session).catch(() => undefined);
     router.replace('/workout-complete');
   }
 
@@ -75,7 +77,7 @@ export default function WorkoutPlayerScreen() {
         {
           text: 'End Workout',
           style: 'destructive',
-          onPress: finishEarly,
+          onPress: () => void finishEarly(),
         },
       ]
     );

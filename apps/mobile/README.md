@@ -52,6 +52,22 @@ feedback, screen updates, or completion navigation until it is foregrounded
 again. A future background-audio or notification feature would require native
 background capabilities that are intentionally outside the current timer scope.
 
+## Local workout storage
+
+Generated workouts, named saved workouts, and workout-session history are stored
+locally with AsyncStorage under the `@beatfit/data` key. Screens access this data
+through the typed persistence store and repository rather than calling storage
+directly.
+
+The stored document includes a numeric schema version. Version 1 contains
+`generatedWorkouts`, `savedWorkouts`, and `sessions` arrays. Reads migrate the
+legacy version-0 shape, validate nested records, discard malformed entries, and
+deduplicate IDs. Future migrations should be added to `migrateStorage` before
+incrementing `STORAGE_SCHEMA_VERSION`.
+
+AsyncStorage is unencrypted device-local storage. It is appropriate for this MVP
+workout data, but it is not intended for secrets or cross-device synchronization.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

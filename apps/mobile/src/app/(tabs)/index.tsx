@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { generateWorkout } from '@/services/api';
+import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type {
   Difficulty,
@@ -54,6 +55,7 @@ const EQUIPMENT: readonly { label: string; value: Equipment }[] = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { recordGeneratedWorkout } = usePersistenceStore();
   const { request: previousRequest, saveGeneration } = useWorkoutStore();
   const previousSong = previousRequest?.songs[0];
   const submissionInProgress = useRef(false);
@@ -106,6 +108,7 @@ export default function HomeScreen() {
     try {
       const generatedWorkout = await generateWorkout(request);
       saveGeneration(request, generatedWorkout);
+      await recordGeneratedWorkout(request, generatedWorkout).catch(() => undefined);
       router.push('/workout-preview');
     } catch (caughtError) {
       const message =
@@ -134,6 +137,25 @@ export default function HomeScreen() {
               <ThemedText themeColor="textSecondary">
                 Turn one song into a timed workout.
               </ThemedText>
+            </View>
+
+            <View style={styles.libraryLinks}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/saved-workouts')}
+                style={({ pressed }) => [styles.libraryButton, { opacity: pressed ? 0.65 : 1 }]}>
+                <ThemedText type="smallBold" style={styles.libraryButtonText}>
+                  Saved Workouts
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/workout-history')}
+                style={({ pressed }) => [styles.libraryButton, { opacity: pressed ? 0.65 : 1 }]}>
+                <ThemedText type="smallBold" style={styles.libraryButtonText}>
+                  History
+                </ThemedText>
+              </Pressable>
             </View>
 
             <ThemedView type="backgroundElement" style={styles.panel}>
@@ -350,6 +372,16 @@ const styles = StyleSheet.create({
     gap: Spacing.four,
   },
   header: { gap: Spacing.one },
+  libraryLinks: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  libraryButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2563eb',
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+  },
+  libraryButtonText: { color: '#2563eb' },
   panel: { gap: Spacing.three, padding: Spacing.three, borderRadius: Spacing.three },
   fieldGroup: { gap: Spacing.two },
   optionGroup: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },

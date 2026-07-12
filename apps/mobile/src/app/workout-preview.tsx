@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { generateWorkout } from '@/services/api';
+import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutBlock, WorkoutInterval } from '@/types/workout';
 import {
@@ -37,10 +40,19 @@ const FALLBACK_INTERVAL_COLORS = {
 
 export default function WorkoutPreviewScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const {
+    error: storageError,
+    recordGeneratedWorkout,
+    saveNamedWorkout,
+  } = usePersistenceStore();
   const { request, workout, replaceWorkout } = useWorkoutStore();
   const regenerationInProgress = useRef(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenerationError, setRegenerationError] = useState<string | null>(null);
+  const [workoutName, setWorkoutName] = useState('My BeatFit Workout');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   async function handleGenerateAgain() {
     if (!request || regenerationInProgress.current) return;
@@ -49,7 +61,9 @@ export default function WorkoutPreviewScreen() {
     setIsRegenerating(true);
     setRegenerationError(null);
     try {
-      replaceWorkout(await generateWorkout(request));
+      const regeneratedWorkout = await generateWorkout(request);
+      replaceWorkout(regeneratedWorkout);
+      await recordGeneratedWorkout(request, regeneratedWorkout).catch(() => undefined);
     } catch (caughtError) {
       const message =
         caughtError instanceof Error ? caughtError.message : 'An unexpected error occurred.';
@@ -57,6 +71,20 @@ export default function WorkoutPreviewScreen() {
     } finally {
       regenerationInProgress.current = false;
       setIsRegenerating(false);
+    }
+  }
+
+  async function handleSaveWorkout() {
+    if (!request || !workout || isSaving) return;
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      await saveNamedWorkout(workoutName, request, workout);
+      setSaveMessage('Workout saved.');
+    } catch (caughtError) {
+      setSaveMessage(caughtError instanceof Error ? caughtError.message : 'Could not save workout.');
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -118,6 +146,41 @@ export default function WorkoutPreviewScreen() {
               {regenerationError}
             </ThemedText>
           )}
+          {storageError && (
+            <ThemedText accessibilityRole="alert" style={styles.errorText}>
+              Local storage: {storageError}
+            </ThemedText>
+          )}
+
+          <ThemedView type="backgroundElement" style={styles.saveCard}>
+            <ThemedText type="smallBold">Save this workout</ThemedText>
+            <TextInput
+              accessibilityLabel="Saved workout name"
+              value={workoutName}
+              onChangeText={setWorkoutName}
+              placeholder="Workout name"
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.nameInput,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.background,
+                  borderColor: theme.backgroundSelected,
+                },
+              ]}
+            />
+            <ActionButton
+              label={isSaving ? 'Saving…' : 'Save Workout'}
+              onPress={handleSaveWorkout}
+              loading={isSaving}
+              disabled={isSaving}
+            />
+            {saveMessage && (
+              <ThemedText accessibilityRole="alert" type="small" themeColor="textSecondary">
+                {saveMessage}
+              </ThemedText>
+            )}
+          </ThemedView>
 
           <View style={styles.actions}>
             <ActionButton
@@ -317,6 +380,14 @@ const styles = StyleSheet.create({
   intervalTiming: { width: 50, gap: Spacing.half },
   intervalDetails: { flex: 1, gap: Spacing.one },
   actions: { gap: Spacing.two },
+  saveCard: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
+  nameInput: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    fontSize: 16,
+  },
   actionButton: {
     minHeight: 52,
     flexDirection: 'row',

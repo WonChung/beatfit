@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutFeedback } from '@/types/workout';
 import { formatMuscleGroup, formatSeconds, toReadableLabel } from '@/utils/workout-format';
@@ -21,6 +22,7 @@ const FEEDBACK_OPTIONS: readonly { label: string; value: WorkoutFeedback }[] = [
 
 export default function WorkoutCompleteScreen() {
   const router = useRouter();
+  const { error: storageError, persistSessionFeedback } = usePersistenceStore();
   const { session, clearSession, setSessionFeedback } = useWorkoutStore();
 
   if (!session) {
@@ -40,10 +42,16 @@ export default function WorkoutCompleteScreen() {
   );
   const durationComparison = getPlannedVsActualDuration(session);
   const endedEarly = session.status === 'ended_early';
+  const sessionId = session.id;
 
   function handleRepeatWorkout() {
     clearSession();
     router.replace('/workout-player');
+  }
+
+  async function handleFeedback(feedback: WorkoutFeedback) {
+    setSessionFeedback(feedback);
+    await persistSessionFeedback(sessionId, feedback).catch(() => undefined);
   }
 
   return (
@@ -125,7 +133,7 @@ export default function WorkoutCompleteScreen() {
                     key={option.value}
                     accessibilityRole="radio"
                     accessibilityState={{ checked: selected }}
-                    onPress={() => setSessionFeedback(option.value)}
+                    onPress={() => void handleFeedback(option.value)}
                     style={({ pressed }) => [
                       styles.feedbackButton,
                       selected && styles.feedbackButtonSelected,
@@ -142,6 +150,12 @@ export default function WorkoutCompleteScreen() {
             </View>
           </ThemedView>
 
+          {storageError && (
+            <ThemedText accessibilityRole="alert" style={styles.errorText}>
+              {storageError}
+            </ThemedText>
+          )}
+
           <View style={styles.actions}>
             <ActionButton label="Repeat Workout" variant="primary" onPress={handleRepeatWorkout} />
             <ActionButton
@@ -149,6 +163,10 @@ export default function WorkoutCompleteScreen() {
               onPress={() => router.dismissTo('/')}
             />
             <ActionButton label="Return Home" onPress={() => router.dismissTo('/')} />
+            <ActionButton
+              label="View Workout History"
+              onPress={() => router.push('/workout-history')}
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -280,5 +298,6 @@ const styles = StyleSheet.create({
   secondaryButton: { borderColor: '#2563eb' },
   primaryButtonText: { color: '#ffffff' },
   secondaryButtonText: { color: '#2563eb' },
+  errorText: { color: '#dc2626', textAlign: 'center' },
   messageScreen: { flex: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.three },
 });
