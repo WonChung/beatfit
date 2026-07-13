@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ExerciseVisual } from '@/components/exercise-visual';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -130,6 +131,13 @@ export default function WorkoutPlayerScreen() {
             <ThemedText type="subtitle" style={styles.exerciseName}>
               {timer.current.interval.exercise}
             </ThemedText>
+            <View style={styles.currentExerciseVisual}>
+              <ExerciseVisual
+                exerciseName={timer.current.interval.exercise}
+                size={180}
+                showLabel={false}
+              />
+            </View>
             <ThemedText
               accessibilityLabel={`${remainingSeconds} seconds remaining`}
               style={[styles.countdown, { color: intervalColor }]}>
@@ -159,15 +167,28 @@ export default function WorkoutPlayerScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               Up next
             </ThemedText>
-            <ThemedText type="smallBold">
-              {timer.next ? timer.next.interval.exercise : 'Workout complete'}
-            </ThemedText>
-            {timer.next && (
-              <ThemedText type="small" themeColor="textSecondary">
-                {formatIntervalType(timer.next.interval.type)} ·{' '}
-                {formatSeconds(Math.ceil(timer.next.durationMs / 1000))}
-              </ThemedText>
-            )}
+            <View style={styles.nextContent}>
+              {timer.next && timer.next.interval.type.trim().toLowerCase() !== 'rest' ? (
+                <View style={styles.nextVisual}>
+                  <ExerciseVisual
+                    exerciseName={timer.next.interval.exercise}
+                    size={56}
+                    showLabel={false}
+                  />
+                </View>
+              ) : null}
+              <View style={styles.nextCopy}>
+                <ThemedText type="smallBold">
+                  {timer.next ? timer.next.interval.exercise : 'Workout complete'}
+                </ThemedText>
+                {timer.next && (
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {formatIntervalType(timer.next.interval.type)} ·{' '}
+                    {formatSeconds(Math.ceil(timer.next.durationMs / 1000))}
+                  </ThemedText>
+                )}
+              </View>
+            </View>
           </ThemedView>
 
           <View style={styles.controls}>
@@ -341,8 +362,14 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.five,
     paddingHorizontal: Spacing.three,
   },
-  timerSection: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.four },
+  timerSection: { alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.three },
   exerciseName: { textAlign: 'center' },
+  currentExerciseVisual: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: Spacing.one,
+  },
   countdown: { fontSize: 76, lineHeight: 88, fontWeight: '700', fontVariant: ['tabular-nums'] },
   progressSection: { gap: Spacing.two },
   progressLabels: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -354,6 +381,9 @@ const styles = StyleSheet.create({
   },
   progressFill: { height: '100%', borderRadius: 6, backgroundColor: '#2563eb' },
   nextCard: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.one },
+  nextContent: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  nextVisual: { flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
+  nextCopy: { flex: 1, gap: Spacing.one },
   controls: { gap: Spacing.two },
   primaryButton: {
     minHeight: 56,

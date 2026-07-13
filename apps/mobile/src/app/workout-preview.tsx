@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ExerciseVisual } from '@/components/exercise-visual';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -312,17 +313,20 @@ function IntervalPreview({ interval }: { interval: WorkoutInterval }) {
         styles.intervalCard,
         { backgroundColor: colors.backgroundColor, borderLeftColor: colors.borderColor },
       ]}>
-      <View style={styles.intervalTiming}>
-        <ThemedText type="code">{formatSeconds(interval.start_seconds)}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          to
-        </ThemedText>
-        <ThemedText type="code">{formatSeconds(interval.end_seconds)}</ThemedText>
-      </View>
+      {normalizedType !== 'rest' ? (
+        <View style={styles.intervalVisual}>
+          <ExerciseVisual exerciseName={interval.exercise} size={52} showLabel={false} />
+        </View>
+      ) : null}
       <View style={styles.intervalDetails}>
-        <ThemedText type="smallBold" style={{ color: colors.borderColor }}>
-          {formatIntervalType(interval.type)}
-        </ThemedText>
+        <View style={styles.intervalMetadata}>
+          <ThemedText type="smallBold" style={{ color: colors.borderColor }}>
+            {formatIntervalType(interval.type)}
+          </ThemedText>
+          <ThemedText type="code">
+            {formatSeconds(interval.start_seconds)}–{formatSeconds(interval.end_seconds)}
+          </ThemedText>
+        </View>
         <ThemedText>{interval.exercise}</ThemedText>
       </View>
     </View>
@@ -429,8 +433,19 @@ const styles = StyleSheet.create({
     borderRadius: Spacing.two,
     gap: Spacing.three,
   },
-  intervalTiming: { width: 50, gap: Spacing.half },
   intervalDetails: { flex: 1, gap: Spacing.one },
+  intervalMetadata: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.one,
+  },
+  intervalVisual: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   actions: { gap: Spacing.two },
   saveCard: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
   personalizationCard: {
