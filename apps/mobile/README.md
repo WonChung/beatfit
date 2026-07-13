@@ -1,119 +1,261 @@
-# Welcome to your Expo app 👋
+# BeatFit mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+BeatFit mobile is the Expo/React Native client for creating personalized,
+music-length workouts. It supports authenticated workout generation, preview,
+an interval player, completion feedback, saved workouts, history, preferences,
+metadata-only music selection, and local exercise silhouettes.
 
-## Get started
+The app uses Expo Router with typed routes. Application routes live in
+`src/app`, reusable UI in `src/components`, API and provider adapters in
+`src/services`, typed state providers in `src/state`, and device persistence in
+`src/storage`.
 
-1. Install dependencies
+## Prerequisites
 
-   ```bash
-   npm install
-   ```
+- A currently supported Node.js LTS release and npm
+- The BeatFit FastAPI backend running locally or at a reachable HTTPS URL
+- A configured Supabase project for email/password authentication
+- Xcode for an iOS simulator or local iOS development build
+- Android Studio for an Android emulator or local Android development build
 
-2. Start the app
+Use Expo Go for the core JavaScript workout flow when its bundled native modules
+are sufficient. Apple Music requires BeatFit's custom native module and
+therefore a development build; it is not available in Expo Go.
 
-   ```bash
-   npx expo start
-   ```
+## Setup
 
-## BeatFit API configuration
-
-The app reads its backend URL from `EXPO_PUBLIC_API_BASE_URL`. Copy the example
-environment file before starting Expo:
+From `apps/mobile`:
 
 ```bash
+npm ci
 cp .env.example .env.local
 ```
 
-When the variable is not set, the centralized API client falls back to
-`http://127.0.0.1:8000` for local web and iOS Simulator development.
+Update `.env.local`, start the backend, then start Expo:
 
-`127.0.0.1` on a physical phone points to the phone itself, not your computer.
-To test with Expo Go on a phone, set the URL to your Mac's local network IP, for
-example:
+```bash
+npm start
+```
+
+The Expo terminal can open a simulator, emulator, web browser, Expo Go, or an
+installed development build. The equivalent package scripts are:
+
+```bash
+npm run ios
+npm run android
+npm run web
+```
+
+From the repository root, `make setup` installs all project dependencies and
+`make run-mobile` starts this app.
+
+## Environment variables
+
+Expo embeds every `EXPO_PUBLIC_` value in the client bundle. These values must
+be public configuration, never credentials.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `EXPO_PUBLIC_API_BASE_URL` | Recommended | BeatFit backend origin. The client falls back to `http://127.0.0.1:8000` for local web and the iOS simulator. |
+| `EXPO_PUBLIC_SUPABASE_URL` | Yes | Public Supabase project URL used for authentication. |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable/anonymous client key. Never use a service-role key. |
+| `EXPO_PUBLIC_APPLE_MUSIC_ENABLED` | No | Shows the Apple Music entry point when set to `true`; it does not make the native module available. |
+| `EXPO_PUBLIC_SPOTIFY_ENABLED` | No | Shows the Spotify entry point when set to `true`. |
+| `EXPO_PUBLIC_SPOTIFY_CLIENT_ID` | For Spotify | Public Spotify application client ID used by Authorization Code with PKCE. |
+| `EXPO_PUBLIC_SPOTIFY_REDIRECT_URI` | For Spotify | Redirect URI registered exactly in the Spotify Developer Dashboard and in the installed app build. |
+
+Restart Expo after changing environment variables. Never put Supabase service
+keys, Spotify client secrets, Apple private keys, Apple signing credentials, or
+provider access tokens in `.env.local`.
+
+## Local device networking
+
+`127.0.0.1` on a physical phone is the phone itself, not the development Mac.
+For a physical device, use the Mac's local network address:
 
 ```text
 EXPO_PUBLIC_API_BASE_URL=http://192.168.1.25:8000
 ```
 
-Start FastAPI so it listens on your network (`--host 0.0.0.0`), and keep the Mac
-and phone on the same local network. Public production builds should use an
-HTTPS API URL.
+Run FastAPI on `0.0.0.0`, keep both devices on the same network, and permit the
+connection through the Mac firewall. An Android emulator commonly reaches the
+host through `http://10.0.2.2:8000`; confirm the address for the emulator in
+use. Production builds must use a trusted HTTPS API origin.
 
-## Supabase authentication
+## Authentication and protected routes
 
-Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in
-`.env.local`. The publishable key is designed for client distribution; never
-put a service-role key or JWT signing secret in an `EXPO_PUBLIC_` variable.
+`AuthProvider` wraps the Expo Router stack. It restores the Supabase session
+before rendering protected screens, refreshes tokens while the native app is
+active, and exposes email/password sign-up, sign-in, and sign-out. The sign-in
+screen is the only unauthenticated route; all workout and library screens are
+inside `Stack.Protected`.
 
-The auth provider restores the persisted Supabase session from AsyncStorage,
-refreshes access tokens while the native app is active, and holds protected
-Expo Router screens behind a loading gate until restoration finishes. Email
-confirmation behavior follows the Supabase project's Auth settings.
+Email confirmation follows the Supabase project's Auth settings. The mobile app
+uses the public Supabase key only. Backend requests that need an account include
+the current access token, and the backend derives ownership from the verified
+token rather than a client-supplied user ID.
 
-## Workout timer and background behavior
+## Workout flow
 
-The active workout timer uses wall-clock timestamps instead of relying on every
-JavaScript interval tick firing on time. When the app returns to the foreground,
-it recalculates the current interval and can catch up across multiple intervals.
+1. **Setup** selects muscle group, difficulty, available equipment, goal, and
+   either a manually entered song or provider-selected tracks.
+2. **Generate** calls the authenticated
+   `POST /workouts/generate/personalized` endpoint through the centralized API
+   client. The generated workout and original request remain in typed in-memory
+   state rather than being serialized into route parameters.
+3. **Preview** shows configuration, personalization explanations, song blocks,
+   every interval, and exercise silhouettes. A workout can be regenerated,
+   edited, saved under a unique name, or started.
+4. **Player** uses timestamp-based timer transitions, supports start, pause,
+   resume, previous, skip, and confirmed early ending, and automatically moves
+   through intervals and song blocks.
+5. **Completion** summarizes planned and actual duration, completed intervals
+   and blocks, status, and feedback. The user can repeat the same generated
+   workout without another backend request.
 
-This is not background execution: iOS, Android, and browsers may suspend the
-JavaScript process while BeatFit is not active. The app cannot guarantee haptic
-feedback, screen updates, or completion navigation until it is foregrounded
-again. A future background-audio or notification feature would require native
-background capabilities that are intentionally outside the current timer scope.
+Saved workouts can be renamed, favorited, repeated, or deleted. History includes
+completed and ended-early sessions. Preferences are account-backed and include
+difficulty, equipment, goal, avoided/favorite exercises, high-impact allowance,
+and work/rest intensity; personalization can also be reset.
 
-## Local workout storage
+## State and persistence
 
-Generated workouts, named saved workouts, and workout-session history are stored
-locally with AsyncStorage under the `@beatfit/data` key. Screens access this data
-through the typed persistence store and repository rather than calling storage
-directly.
+- `WorkoutProvider` owns the current request, generated workout, selected songs,
+  and active/completed session in memory.
+- `PersistenceProvider` exposes local saved-workout and history operations.
+- `PreferencesProvider` loads and updates account preferences through the API.
+- `BeatFitRepository` is the only layer that directly reads and writes workout
+  data in AsyncStorage.
 
-The stored document includes a numeric schema version. Version 1 contains
-`generatedWorkouts`, `savedWorkouts`, and `sessions` arrays. Reads migrate the
-legacy version-0 shape, validate nested records, discard malformed entries, and
-deduplicate IDs. Future migrations should be added to `migrateStorage` before
-incrementing `STORAGE_SCHEMA_VERSION`.
+Local data uses the `@beatfit/data` key and schema version `1`, containing
+`generatedWorkouts`, `savedWorkouts`, and `sessions`. Reads migrate the legacy
+version-0 shape, discard malformed records, and deduplicate IDs. Add future
+migrations to `migrateStorage` before increasing `STORAGE_SCHEMA_VERSION`.
 
-AsyncStorage is unencrypted device-local storage. It is appropriate for this MVP
-workout data, but it is not intended for secrets or cross-device synchronization.
+AsyncStorage is unencrypted and device-local. It is suitable for this MVP's
+workout data, but not for secrets or guaranteed cross-device synchronization.
+Completed sessions and feedback also attempt account sync when the generated
+workout has a backend ID; local history remains available when that sync fails.
 
-In the output, you'll find options to open the app in a
+## Music metadata providers
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Music integrations provide playlist and track metadata only: title, artist,
+duration, artwork where available, and a provider identifier. Selected tracks
+are converted into BeatFit's `Song` model and passed to workout generation.
+Neither provider plays music or supplies BPM, audio analysis, recommendations,
+or beat synchronization.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Apple Music
 
-## Get a fresh project
+The `AppleMusicService` interface is backed by a local Expo native module on
+iOS. The module requests MusicKit authorization, checks subscription capability,
+and reads library playlist/track metadata. It requires:
 
-When you're ready, run:
+- an Apple Developer identifier and MusicKit capability/entitlement;
+- the usage description already declared in `app.json`;
+- a BeatFit development build or production native build;
+- a signed backend developer-token endpoint where the platform requires a
+  developer token.
 
-```bash
-npm run reset-project
+The private Apple key and signing credentials belong only on the backend. Expo
+Go cannot load `BeatFitAppleMusic`. The Android directory is currently a native
+integration scaffold that expects Apple's approved MusicKit authentication AAR;
+the Android native module still needs completing before the feature is usable
+there. See the repository's
+[`apple-music-build-setup.md`](../../docs/apple-music-build-setup.md) for the
+manual Apple Developer and native-build checklist.
+
+### Spotify
+
+Spotify uses Authorization Code with PKCE, the two playlist-read scopes, and no
+client secret. Access and refresh tokens are stored in SecureStore and bound to
+the active BeatFit user. Configure the exact redirect URI and add test accounts
+as development users in Spotify's dashboard while the application remains in
+Development Mode. The default `mobile://spotify-callback` custom scheme is for
+an installed app/development build, not Expo Go.
+
+The adapter handles token refresh, pagination, cancellation, unavailable and
+local tracks, missing scopes, network failures, and rate limits. Disconnecting
+removes locally stored Spotify tokens and Spotify-selected tracks. See
+[`spotify-integration.md`](../../docs/spotify-integration.md) for dashboard,
+redirect, development-user, and release-limit details.
+
+## Exercise silhouettes
+
+Exercise visuals are offline SVG assets under `assets/exercises`. The mapping in
+`src/utils/exercise-visual.ts` normalizes names and aliases them to a small set of
+typed posture keys. `src/components/exercise-visual.tsx` maps those keys to
+static Metro `require()` calls and renders them with `expo-image`.
+
+`ExerciseVisual` accepts an exercise name, size, optional label visibility, and
+fallback behavior. Preview intervals use compact thumbnails, while the player
+shows a prominent current visual and a smaller next-exercise visual. Unknown or
+blank names use the bundled fallback silhouette and display the exercise name;
+callers can opt to hide unknown visuals.
+
+The current ten assets are reusable posture placeholders, not exact
+exercise-by-exercise form illustrations. See
+[`assets/exercises/README.md`](assets/exercises/README.md) for the source table,
+alias coverage, replacement workflow, accessibility requirements, and tests.
+
+## Project layout
+
+```text
+apps/mobile/
+├── assets/exercises/          local SVG exercise silhouettes
+├── modules/                   local Expo native modules
+├── src/app/                   Expo Router routes and protected stack
+├── src/components/            shared UI and error boundary
+├── src/hooks/                 theme and workout timer hooks
+├── src/services/              BeatFit API and music-provider adapters
+├── src/state/                 auth, preferences, persistence, workout state
+├── src/storage/               versioned local repository
+├── src/timer/                 pure interval timeline/state transitions
+├── src/types/                 shared mobile domain types
+└── src/utils/                 validation, formatting, sessions, visuals
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Validation and builds
 
-### Other setup steps
+Run all mobile checks from `apps/mobile`:
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm run lint
+npm run typecheck
+npm test
+```
 
-## Learn more
+Jest uses `jest-expo`, runs serially, and mocks AsyncStorage. Provider tests use
+fixtures and mock adapters; normal test runs do not require Apple Music, Spotify,
+Supabase, or a real provider account.
 
-To learn more about developing your project with Expo, look at the following resources:
+Verify Metro can bundle a platform, including all local SVGs, with:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+npx expo export --platform ios --output-dir dist
+```
 
-## Join the community
+Use `--platform android` or `--platform web` for another target. `dist` is a
+generated, ignored directory. An export verifies the JavaScript/assets bundle;
+it does not compile or validate custom native modules. Build and run the native
+project when testing Apple Music or custom URL schemes:
 
-Join our community of developers creating universal apps.
+```bash
+npx expo run:ios
+npx expo run:android
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Known limitations
+
+- There is no Apple Music or Spotify playback, audio analysis, or playback-state
+  synchronization.
+- Apple Music is unavailable in Expo Go and its Android native adapter is not
+  complete.
+- The active timer recalculates from wall-clock timestamps when foregrounded,
+  but the JavaScript process does not execute reliably in the background.
+  Haptics, UI updates, and completion navigation can be delayed until foreground.
+- Workout persistence is local-first and is not a complete cross-device cache.
+- Exercise silhouettes are generic static posture placeholders and do not yet
+  demonstrate each exercise's full movement or form.
+- The Explore tab still contains Expo-oriented reference content and is not a
+  finished BeatFit product surface.
