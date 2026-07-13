@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.db_models import User
 
-
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -56,9 +55,7 @@ class SupabaseTokenVerifier:
 def get_auth_settings() -> AuthSettings:
     supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
     issuer = os.getenv("SUPABASE_JWT_ISSUER", f"{supabase_url}/auth/v1").rstrip("/")
-    jwks_url = os.getenv(
-        "SUPABASE_JWKS_URL", f"{issuer}/.well-known/jwks.json"
-    )
+    jwks_url = os.getenv("SUPABASE_JWKS_URL", f"{issuer}/.well-known/jwks.json")
     audience = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
     if not supabase_url or not issuer.startswith("https://"):
         raise RuntimeError("SUPABASE_URL and a valid HTTPS JWT issuer must be configured.")

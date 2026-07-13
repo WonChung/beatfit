@@ -7,7 +7,6 @@ from app.domain import Difficulty, Equipment, MuscleGroup
 from app.exercise_catalog import EXERCISE_CATALOG
 from app.main import app
 
-
 client = TestClient(app)
 CATALOG_BY_ID = {exercise.id: exercise for exercise in EXERCISE_CATALOG}
 
@@ -114,8 +113,7 @@ def test_random_seed_produces_deterministic_output():
 
 def test_multi_song_playlist_preserves_every_song_and_reduces_repetition():
     songs = [
-        {"title": f"Song {index}", "artist": "Artist", "duration_ms": 240_000}
-        for index in range(4)
+        {"title": f"Song {index}", "artist": "Artist", "duration_ms": 240_000} for index in range(4)
     ]
     response = client.post(
         "/workouts/generate",
@@ -130,9 +128,7 @@ def test_multi_song_playlist_preserves_every_song_and_reduces_repetition():
 
     assert response.status_code == 200
     data = response.json()
-    assert [block["song"]["title"] for block in data["blocks"]] == [
-        song["title"] for song in songs
-    ]
+    assert [block["song"]["title"] for block in data["blocks"]] == [song["title"] for song in songs]
     work_ids = [
         interval["exercise_id"]
         for block in data["blocks"]
@@ -157,7 +153,9 @@ def test_high_impact_exercises_are_not_consecutive_when_alternatives_exist():
     )
 
     exercises = [CATALOG_BY_ID[exercise_id] for exercise_id in _exercise_ids(response.json())]
-    assert not any(previous.high_impact and current.high_impact for previous, current in pairwise(exercises))
+    assert not any(
+        previous.high_impact and current.high_impact for previous, current in pairwise(exercises)
+    )
 
 
 def test_invalid_equipment_goal_and_filters_fail_validation():

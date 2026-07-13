@@ -40,7 +40,7 @@ Apply migrations before starting the API:
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 set -a
 source .env
 set +a
@@ -49,6 +49,28 @@ fastapi dev app/main.py
 ```
 
 Interactive documentation is available at `http://127.0.0.1:8000/docs`.
+
+## Runtime hardening
+
+`APP_ENV` accepts `development`, `test`, or `production`. Local development
+uses the documented loopback CORS origins when `CORS_ALLOWED_ORIGINS` is not
+set. Set the variable to a comma-separated origin allowlist to override it.
+
+Production startup fails before serving traffic unless it has:
+
+- explicit HTTPS `CORS_ALLOWED_ORIGINS` with no wildcard;
+- a non-loopback PostgreSQL `DATABASE_URL` without the example credentials;
+- valid HTTPS `SUPABASE_URL` and `SUPABASE_JWT_ISSUER` values.
+
+Application request logs are one-line JSON and contain request metadata only;
+headers, request bodies, query strings, credentials, and exception messages are
+not logged. Clients may provide a valid `X-Request-ID`, and every response
+returns the request ID in that header. Error responses include the same ID but
+never include stack traces or raw internal exception messages.
+
+- `GET /health` is the process liveness check and has no external dependency.
+- `GET /ready` executes a minimal database query and returns `503` safely when
+  PostgreSQL is unavailable.
 
 ## Architecture
 
@@ -215,6 +237,14 @@ set -a
 source .env
 set +a
 TEST_DATABASE_URL="$TEST_DATABASE_URL" .venv/bin/pytest -q
+```
+
+Lint and format validation use Ruff from `requirements-dev.txt`:
+
+```bash
+cd backend
+.venv/bin/ruff check app tests migrations
+.venv/bin/ruff format --check app tests migrations
 ```
 
 Persistence tests use the separate `TEST_DATABASE_URL` and clear only tables in

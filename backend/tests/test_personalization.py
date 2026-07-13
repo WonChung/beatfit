@@ -13,7 +13,6 @@ from app.database import Base, get_db
 from app.exercise_catalog import EXERCISE_CATALOG
 from app.main import app
 
-
 USER_ONE_ID = "11111111-1111-4111-8111-111111111111"
 USER_TWO_ID = "22222222-2222-4222-8222-222222222222"
 CATALOG = {exercise.id: exercise for exercise in EXERCISE_CATALOG}
@@ -91,8 +90,7 @@ def test_preferences_and_personalized_generation_require_authentication(
     client.headers.pop("Authorization")
     assert client.get("/user-preferences").status_code == 401
     assert (
-        client.post("/workouts/generate/personalized", json=_generate_payload()).status_code
-        == 401
+        client.post("/workouts/generate/personalized", json=_generate_payload()).status_code == 401
     )
 
 
@@ -146,12 +144,8 @@ def test_two_too_hard_ratings_reduce_difficulty_and_add_rest(client: TestClient)
     assert response.status_code == 200
     workout = response.json()
     assert workout["difficulty"] == "beginner"
-    assert _first_interval_duration(workout, "rest") > _first_interval_duration(
-        baseline, "rest"
-    )
-    assert _first_interval_duration(workout, "work") < _first_interval_duration(
-        baseline, "work"
-    )
+    assert _first_interval_duration(workout, "rest") > _first_interval_duration(baseline, "rest")
+    assert _first_interval_duration(workout, "work") < _first_interval_duration(baseline, "work")
     assert workout["personalization"]["summary"].startswith("Rest increased")
 
 
@@ -170,9 +164,7 @@ def test_about_right_maintains_requested_structure(client: TestClient):
 def test_single_rating_is_insufficient_for_feedback_adjustment(client: TestClient):
     _add_feedback_sessions(client, ["too_easy"])
 
-    workout = client.post(
-        "/workouts/generate/personalized", json=_generate_payload()
-    ).json()
+    workout = client.post("/workouts/generate/personalized", json=_generate_payload()).json()
 
     assert workout["difficulty"] == "intermediate"
     assert workout["personalization"]["feedback_signal"] is None
@@ -182,9 +174,7 @@ def test_single_rating_is_insufficient_for_feedback_adjustment(client: TestClien
 def test_opposite_rating_blocks_feedback_adjustment(client: TestClient):
     _add_feedback_sessions(client, ["too_easy", "too_easy", "too_hard"])
 
-    workout = client.post(
-        "/workouts/generate/personalized", json=_generate_payload()
-    ).json()
+    workout = client.post("/workouts/generate/personalized", json=_generate_payload()).json()
 
     assert workout["difficulty"] == "intermediate"
     assert workout["personalization"]["feedback_signal"] is None
@@ -193,13 +183,12 @@ def test_opposite_rating_blocks_feedback_adjustment(client: TestClient):
 
 def test_avoided_exercise_is_a_hard_constraint(client: TestClient):
     avoided_id = "chest-bodyweight-push-up"
-    assert client.put(
-        "/user-preferences", json={"avoided_exercise_ids": [avoided_id]}
-    ).status_code == 200
+    assert (
+        client.put("/user-preferences", json={"avoided_exercise_ids": [avoided_id]}).status_code
+        == 200
+    )
 
-    workout = client.post(
-        "/workouts/generate/personalized", json=_generate_payload()
-    ).json()
+    workout = client.post("/workouts/generate/personalized", json=_generate_payload()).json()
 
     assert avoided_id not in _exercise_ids(workout)
     assert "Avoided exercises were excluded." in workout["personalization"]["adjustments"]
@@ -207,9 +196,7 @@ def test_avoided_exercise_is_a_hard_constraint(client: TestClient):
 
 def test_compatible_favorite_is_preferred(client: TestClient):
     favorite_id = "chest-bodyweight-push-up"
-    client.put(
-        "/user-preferences", json={"favorite_exercise_ids": [favorite_id]}
-    )
+    client.put("/user-preferences", json={"favorite_exercise_ids": [favorite_id]})
     payload = _generate_payload(difficulty="beginner")
 
     workout = client.post("/workouts/generate/personalized", json=payload).json()
@@ -233,14 +220,13 @@ def test_avoid_wins_when_an_exercise_is_also_favorite(client: TestClient):
         },
     )
 
-    workout = client.post(
-        "/workouts/generate/personalized", json=_generate_payload()
-    ).json()
+    workout = client.post("/workouts/generate/personalized", json=_generate_payload()).json()
 
     assert conflicted_id not in _exercise_ids(workout)
-    assert "Compatible favorite exercises were preferred." not in workout[
-        "personalization"
-    ]["adjustments"]
+    assert (
+        "Compatible favorite exercises were preferred."
+        not in workout["personalization"]["adjustments"]
+    )
 
 
 def test_unavailable_equipment_is_rejected_instead_of_overridden(client: TestClient):
@@ -277,9 +263,7 @@ def test_high_impact_disabled_and_explicit_goal_and_muscle_remain(client: TestCl
 
 
 def test_work_rest_preference_applies_a_modest_deterministic_bias(client: TestClient):
-    client.put(
-        "/user-preferences", json={"work_rest_preference": "more_rest"}
-    )
+    client.put("/user-preferences", json={"work_rest_preference": "more_rest"})
     payload = _generate_payload()
 
     first = client.post("/workouts/generate/personalized", json=payload).json()
@@ -287,28 +271,18 @@ def test_work_rest_preference_applies_a_modest_deterministic_bias(client: TestCl
     baseline = client.post("/workouts/generate", json=payload).json()
 
     assert _without_workout_id(first) == _without_workout_id(second)
-    assert _first_interval_duration(first, "rest") == _first_interval_duration(
-        baseline, "rest"
-    ) + 5
-    assert _first_interval_duration(first, "work") == _first_interval_duration(
-        baseline, "work"
-    ) - 5
+    assert _first_interval_duration(first, "rest") == _first_interval_duration(baseline, "rest") + 5
+    assert _first_interval_duration(first, "work") == _first_interval_duration(baseline, "work") - 5
 
 
 def test_reset_excludes_all_earlier_feedback_without_erasing_preferences(client: TestClient):
-    client.put(
-        "/user-preferences", json={"favorite_exercise_ids": ["chest-bodyweight-push-up"]}
-    )
+    client.put("/user-preferences", json={"favorite_exercise_ids": ["chest-bodyweight-push-up"]})
     _add_feedback_sessions(client, ["too_easy", "too_easy"])
-    before = client.post(
-        "/workouts/generate/personalized", json=_generate_payload()
-    ).json()
+    before = client.post("/workouts/generate/personalized", json=_generate_payload()).json()
     assert before["difficulty"] == "advanced"
 
     reset = client.post("/user-preferences/reset")
-    after = client.post(
-        "/workouts/generate/personalized", json=_generate_payload()
-    ).json()
+    after = client.post("/workouts/generate/personalized", json=_generate_payload()).json()
 
     assert reset.status_code == 200
     assert reset.json()["history_reset_at"] is not None
@@ -318,9 +292,7 @@ def test_reset_excludes_all_earlier_feedback_without_erasing_preferences(client:
 
 
 def test_invalid_exercise_preference_is_rejected(client: TestClient):
-    response = client.put(
-        "/user-preferences", json={"favorite_exercise_ids": ["not-in-catalog"]}
-    )
+    response = client.put("/user-preferences", json={"favorite_exercise_ids": ["not-in-catalog"]})
     assert response.status_code == 422
 
 

@@ -6,7 +6,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 from app.auth import AuthSettings, SupabaseTokenVerifier
 
-
 PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 PUBLIC_KEY = PRIVATE_KEY.public_key()
 SETTINGS = AuthSettings(

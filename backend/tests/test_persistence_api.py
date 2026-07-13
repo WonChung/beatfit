@@ -1,17 +1,16 @@
-from datetime import UTC, datetime, timedelta
 import os
+from datetime import UTC, datetime, timedelta
 
-import pytest
 import jwt
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db
 from app.auth import get_token_verifier
+from app.database import Base, get_db
 from app.main import app
-
 
 USER_ONE_ID = "11111111-1111-4111-8111-111111111111"
 USER_TWO_ID = "22222222-2222-4222-8222-222222222222"
@@ -179,9 +178,7 @@ def test_authentication_errors_and_profile_sync(client: TestClient):
     assert client.get("/workouts", headers={"Authorization": "Bearer invalid"}).status_code == 401
     assert client.get("/workouts", headers={"Authorization": "Bearer expired"}).status_code == 401
 
-    authenticated = client.get(
-        "/workouts", headers={"Authorization": "Bearer valid-user-one"}
-    )
+    authenticated = client.get("/workouts", headers={"Authorization": "Bearer valid-user-one"})
     assert authenticated.status_code == 200
 
 
@@ -207,11 +204,15 @@ def _workout_payload(name: str | None = None) -> dict:
         "blocks": [
             {
                 "song": {
-                    "title": "Song", "artist": "Artist", "duration_ms": 30_000,
+                    "title": "Song",
+                    "artist": "Artist",
+                    "duration_ms": 30_000,
                     "artwork_url": "https://example.test/art.jpg",
                     "provider_identifier": {
-                        "provider": "apple_music", "catalog_id": "catalog-1",
-                        "library_id": "library-1", "storefront": "us",
+                        "provider": "apple_music",
+                        "catalog_id": "catalog-1",
+                        "library_id": "library-1",
+                        "storefront": "us",
                     },
                 },
                 "duration_seconds": 30,

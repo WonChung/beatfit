@@ -9,7 +9,6 @@ from app.domain import (
     MuscleGroup,
 )
 
-
 _NAMES: dict[MuscleGroup, dict[Equipment, tuple[str, str, str]]] = {
     MuscleGroup.chest: {
         Equipment.bodyweight: ("Incline push-up", "Push-up", "Tempo wide push-up"),
@@ -32,13 +31,21 @@ _NAMES: dict[MuscleGroup, dict[Equipment, tuple[str, str, str]]] = {
         Equipment.gym: ("Machine shoulder press", "Cable lateral raise", "Cable face pull"),
     },
     MuscleGroup.arms: {
-        Equipment.bodyweight: ("Bench triceps dip", "Close-grip push-up", "Bodyweight triceps extension"),
+        Equipment.bodyweight: (
+            "Bench triceps dip",
+            "Close-grip push-up",
+            "Bodyweight triceps extension",
+        ),
         Equipment.dumbbells: ("Dumbbell curl", "Dumbbell triceps extension", "Hammer curl"),
         Equipment.gym: ("Cable curl", "Rope triceps pushdown", "Preacher curl"),
     },
     MuscleGroup.core: {
         Equipment.bodyweight: ("Dead bug", "Forearm plank", "Bicycle crunch"),
-        Equipment.dumbbells: ("Dumbbell dead bug", "Dumbbell Russian twist", "Dumbbell suitcase march"),
+        Equipment.dumbbells: (
+            "Dumbbell dead bug",
+            "Dumbbell Russian twist",
+            "Dumbbell suitcase march",
+        ),
         Equipment.gym: ("Cable Pallof press", "Cable crunch", "Captain's chair knee raise"),
     },
     MuscleGroup.full_body: {
@@ -54,8 +61,16 @@ _PATTERNS: dict[MuscleGroup, tuple[MovementPattern, MovementPattern, MovementPat
     MuscleGroup.legs: (MovementPattern.squat, MovementPattern.lunge, MovementPattern.hinge),
     MuscleGroup.shoulders: (MovementPattern.push, MovementPattern.isolation, MovementPattern.push),
     MuscleGroup.arms: (MovementPattern.push, MovementPattern.isolation, MovementPattern.pull),
-    MuscleGroup.core: (MovementPattern.anti_rotation, MovementPattern.isometric, MovementPattern.rotation),
-    MuscleGroup.full_body: (MovementPattern.locomotion, MovementPattern.squat, MovementPattern.hinge),
+    MuscleGroup.core: (
+        MovementPattern.anti_rotation,
+        MovementPattern.isometric,
+        MovementPattern.rotation,
+    ),
+    MuscleGroup.full_body: (
+        MovementPattern.locomotion,
+        MovementPattern.squat,
+        MovementPattern.hinge,
+    ),
 }
 
 _SECONDARY: dict[MuscleGroup, tuple[MuscleGroup, ...]] = {
@@ -69,13 +84,48 @@ _SECONDARY: dict[MuscleGroup, tuple[MuscleGroup, ...]] = {
 }
 
 _ADVANCED: tuple[tuple[MuscleGroup, Equipment, str, MovementPattern, bool, bool], ...] = (
-    (MuscleGroup.chest, Equipment.bodyweight, "Plyometric push-up", MovementPattern.push, False, True),
+    (
+        MuscleGroup.chest,
+        Equipment.bodyweight,
+        "Plyometric push-up",
+        MovementPattern.push,
+        False,
+        True,
+    ),
     (MuscleGroup.back, Equipment.gym, "Weighted pull-up", MovementPattern.pull, False, False),
-    (MuscleGroup.legs, Equipment.dumbbells, "Dumbbell jump lunge", MovementPattern.lunge, True, True),
-    (MuscleGroup.shoulders, Equipment.bodyweight, "Handstand push-up", MovementPattern.push, False, False),
-    (MuscleGroup.arms, Equipment.gym, "Cable curl drop set", MovementPattern.isolation, False, False),
+    (
+        MuscleGroup.legs,
+        Equipment.dumbbells,
+        "Dumbbell jump lunge",
+        MovementPattern.lunge,
+        True,
+        True,
+    ),
+    (
+        MuscleGroup.shoulders,
+        Equipment.bodyweight,
+        "Handstand push-up",
+        MovementPattern.push,
+        False,
+        False,
+    ),
+    (
+        MuscleGroup.arms,
+        Equipment.gym,
+        "Cable curl drop set",
+        MovementPattern.isolation,
+        False,
+        False,
+    ),
     (MuscleGroup.core, Equipment.bodyweight, "V-up", MovementPattern.flexion, False, False),
-    (MuscleGroup.full_body, Equipment.gym, "Battle rope power slam", MovementPattern.locomotion, False, True),
+    (
+        MuscleGroup.full_body,
+        Equipment.gym,
+        "Battle rope power slam",
+        MovementPattern.locomotion,
+        False,
+        True,
+    ),
 )
 
 
@@ -106,7 +156,9 @@ def _seed_catalog() -> tuple[Exercise, ...]:
                         unilateral="single-leg" in name.lower() or "lunge" in name.lower(),
                         high_impact=high_impact,
                         contraindication_notes=(
-                            "Avoid or substitute if jumping causes joint pain." if high_impact else None
+                            "Avoid or substitute if jumping causes joint pain."
+                            if high_impact
+                            else None
                         ),
                     )
                 )

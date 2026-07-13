@@ -2,8 +2,8 @@
 
 from app.api_models import (  # noqa: F401
     ExerciseResponse,
-    GenerateWorkoutRequest,
     GeneratedWorkout,
+    GenerateWorkoutRequest,
     Song,
     WorkoutBlock,
     WorkoutInterval,

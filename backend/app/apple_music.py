@@ -37,13 +37,17 @@ def load_apple_music_settings() -> AppleMusicSettings:
         try:
             private_key = Path(private_key_path).read_text(encoding="utf-8").strip()
         except OSError as error:
-            raise AppleMusicConfigurationError("The Apple Music signing key is unavailable.") from error
+            raise AppleMusicConfigurationError(
+                "The Apple Music signing key is unavailable."
+            ) from error
     team_id = os.getenv("APPLE_MUSIC_TEAM_ID", "").strip()
     key_id = os.getenv("APPLE_MUSIC_KEY_ID", "").strip()
     media_id = os.getenv("APPLE_MUSIC_MEDIA_ID", "").strip()
     if not all((team_id, key_id, media_id, private_key)):
         raise AppleMusicConfigurationError("Apple Music server credentials are not configured.")
-    ttl = min(max(int(os.getenv("APPLE_MUSIC_DEVELOPER_TOKEN_TTL_SECONDS", "3600")), 60), 15_777_000)
+    ttl = min(
+        max(int(os.getenv("APPLE_MUSIC_DEVELOPER_TOKEN_TTL_SECONDS", "3600")), 60), 15_777_000
+    )
     origins = tuple(
         origin.strip().rstrip("/")
         for origin in os.getenv("APPLE_MUSIC_WEB_ORIGINS", "").split(",")
@@ -55,7 +59,9 @@ def load_apple_music_settings() -> AppleMusicSettings:
         media_id=media_id,
         private_key=private_key,
         token_ttl_seconds=ttl,
-        api_base_url=os.getenv("APPLE_MUSIC_API_BASE_URL", "https://api.music.apple.com").rstrip("/"),
+        api_base_url=os.getenv("APPLE_MUSIC_API_BASE_URL", "https://api.music.apple.com").rstrip(
+            "/"
+        ),
         web_origins=origins,
     )
 
@@ -108,7 +114,9 @@ class HttpAppleMusicCatalog:
             response.raise_for_status()
             return response.json()
         except (httpx.HTTPError, ValueError) as error:
-            raise AppleMusicUpstreamError("Apple Music catalog is temporarily unavailable.") from error
+            raise AppleMusicUpstreamError(
+                "Apple Music catalog is temporarily unavailable."
+            ) from error
 
 
 @lru_cache

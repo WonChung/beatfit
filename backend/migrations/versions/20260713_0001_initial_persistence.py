@@ -6,9 +6,8 @@ Revises:
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision: str = "20260713_0001"
 down_revision: str | None = None
@@ -23,8 +22,18 @@ def upgrade() -> None:
         sa.Column("email", sa.String(length=320), nullable=False),
         sa.Column("display_name", sa.String(length=120), nullable=False),
         sa.Column("is_temporary", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("email"),
     )
@@ -38,8 +47,18 @@ def upgrade() -> None:
         sa.Column("equipment", sa.JSON(), nullable=False),
         sa.Column("goal", sa.String(length=32), nullable=False),
         sa.Column("random_seed", sa.Integer()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -53,7 +72,12 @@ def upgrade() -> None:
         sa.Column("song_artist", sa.String(length=240), nullable=False),
         sa.Column("song_duration_ms", sa.Integer(), nullable=False),
         sa.Column("duration_seconds", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["workout_id"], ["workouts.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("workout_id", "position"),
@@ -69,7 +93,12 @@ def upgrade() -> None:
         sa.Column("interval_type", sa.String(length=32), nullable=False),
         sa.Column("exercise_name", sa.String(length=240), nullable=False),
         sa.Column("exercise_catalog_id", sa.String(length=180)),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.CheckConstraint("end_seconds > start_seconds", name="ck_interval_positive_duration"),
         sa.ForeignKeyConstraint(["block_id"], ["workout_blocks.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
@@ -91,8 +120,18 @@ def upgrade() -> None:
         sa.Column("completed_song_blocks", sa.Integer(), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("workout_snapshot", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.CheckConstraint("actual_elapsed_seconds >= 0", name="ck_session_actual_nonnegative"),
         sa.CheckConstraint("completed_intervals >= 0", name="ck_session_completed_nonnegative"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
@@ -107,8 +146,18 @@ def upgrade() -> None:
         sa.Column("session_id", sa.Uuid(), nullable=False),
         sa.Column("rating", sa.String(length=32), nullable=False),
         sa.Column("notes", sa.Text()),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["session_id"], ["workout_sessions.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("session_id"),
@@ -120,8 +169,18 @@ def upgrade() -> None:
         sa.Column("workout_id", sa.Uuid(), nullable=False),
         sa.Column("name", sa.String(length=160), nullable=False),
         sa.Column("is_favorite", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["workout_id"], ["workouts.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),

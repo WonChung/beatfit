@@ -1,12 +1,17 @@
-from datetime import UTC, datetime
 import uuid
+from datetime import UTC, datetime
 
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
 
-from app.apple_music import AppleMusicSettings, DeveloperTokenService, get_apple_music_catalog, get_developer_token_service
+from app.apple_music import (
+    AppleMusicSettings,
+    DeveloperTokenService,
+    get_apple_music_catalog,
+    get_developer_token_service,
+)
 from app.auth import get_current_user
 from app.db_models import User
 from app.main import app

@@ -64,9 +64,7 @@ class UserPreference(TimestampMixin, Base):
     available_equipment: Mapped[list[str]] = mapped_column(
         JSON, default=lambda: ["bodyweight"], nullable=False
     )
-    preferred_goal: Mapped[str] = mapped_column(
-        String(32), default="endurance", nullable=False
-    )
+    preferred_goal: Mapped[str] = mapped_column(String(32), default="endurance", nullable=False)
     avoided_exercise_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     favorite_exercise_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     high_impact_allowed: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

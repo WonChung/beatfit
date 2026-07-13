@@ -14,7 +14,6 @@ from app.apple_music import (
 from app.auth import get_current_user
 from app.db_models import User
 
-
 router = APIRouter(prefix="/music/apple", tags=["Apple Music"])
 
 
@@ -42,7 +41,9 @@ def catalog_search(
     try:
         payload = catalog.search(term.strip(), storefront, limit)
         resources = payload.get("results", {}).get("songs", {}).get("data", [])
-        tracks = [track for resource in resources if (track := _normalize_track(resource, storefront))]
+        tracks = [
+            track for resource in resources if (track := _normalize_track(resource, storefront))
+        ]
         return Page(items=tracks, page=1, page_size=limit, total=len(tracks))
     except AppleMusicConfigurationError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
@@ -63,8 +64,12 @@ def _normalize_track(resource: Any, storefront: str) -> AppleMusicTrack | None:
     duration = attributes.get("durationInMillis")
     return AppleMusicTrack(
         id=resource["id"],
-        title=attributes.get("name") if isinstance(attributes.get("name"), str) else "Unknown title",
-        artist=attributes.get("artistName") if isinstance(attributes.get("artistName"), str) else "Unknown artist",
+        title=attributes.get("name")
+        if isinstance(attributes.get("name"), str)
+        else "Unknown title",
+        artist=attributes.get("artistName")
+        if isinstance(attributes.get("artistName"), str)
+        else "Unknown artist",
         duration_ms=duration if isinstance(duration, int) and duration > 0 else None,
         artwork_url=artwork_url,
         is_playable=attributes.get("playParams") is not None,

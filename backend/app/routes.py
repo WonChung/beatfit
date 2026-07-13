@@ -1,10 +1,9 @@
 from fastapi import APIRouter, HTTPException
 
-from app.api_models import ExerciseResponse, GenerateWorkoutRequest, GeneratedWorkout
+from app.api_models import ExerciseResponse, GeneratedWorkout, GenerateWorkoutRequest
 from app.domain import Difficulty, Equipment, MuscleGroup
 from app.exercise_catalog import filter_exercises
 from app.generator_service import generate_workout
-
 
 router = APIRouter()
 

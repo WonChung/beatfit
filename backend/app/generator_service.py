@@ -1,10 +1,10 @@
+import random
 from collections import deque
 from dataclasses import dataclass, field
-import random
 
 from app.api_models import (
-    GenerateWorkoutRequest,
     GeneratedWorkout,
+    GenerateWorkoutRequest,
     PersonalizationExplanation,
     Song,
     WorkoutBlock,
@@ -12,7 +12,6 @@ from app.api_models import (
 )
 from app.domain import Difficulty, Exercise, Intensity, MovementPattern, WorkoutGoal
 from app.exercise_catalog import filter_exercises
-
 
 _DEFAULT_TIMING = {
     WorkoutGoal.strength: {"work": 50, "rest": 25},
@@ -58,9 +57,7 @@ class GenerationPersonalization:
     avoided_exercise_ids: frozenset[str] = frozenset()
     favorite_exercise_ids: frozenset[str] = frozenset()
     high_impact_allowed: bool = True
-    explanation: PersonalizationExplanation = field(
-        default_factory=PersonalizationExplanation
-    )
+    explanation: PersonalizationExplanation = field(default_factory=PersonalizationExplanation)
 
 
 def generate_workout(
@@ -261,9 +258,7 @@ def _choose_exercise(
 
     if preferred_difficulty is not None:
         exact_difficulty = [
-            exercise
-            for exercise in pool
-            if exercise.minimum_difficulty == preferred_difficulty
+            exercise for exercise in pool if exercise.minimum_difficulty == preferred_difficulty
         ]
         if exact_difficulty:
             pool = exact_difficulty
@@ -275,7 +270,9 @@ def _choose_exercise(
 
     if context.last_movement_pattern is not None:
         different_patterns = [
-            exercise for exercise in pool if exercise.movement_pattern != context.last_movement_pattern
+            exercise
+            for exercise in pool
+            if exercise.movement_pattern != context.last_movement_pattern
         ]
         if different_patterns:
             pool = different_patterns

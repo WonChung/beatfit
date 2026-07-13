@@ -11,20 +11,24 @@ from app.api_models import (
     PersistedWorkout,
     PersistedWorkoutSession,
     Song,
-    WorkoutBlock as WorkoutBlockSchema,
     WorkoutCreate,
-    WorkoutInterval as WorkoutIntervalSchema,
     WorkoutSessionCreate,
     WorkoutSessionUpdate,
+)
+from app.api_models import (
+    WorkoutBlock as WorkoutBlockSchema,
+)
+from app.api_models import (
+    WorkoutInterval as WorkoutIntervalSchema,
 )
 from app.db_models import (
     SavedWorkout,
     SessionFeedback,
+    User,
     Workout,
     WorkoutBlock,
     WorkoutInterval,
     WorkoutSession,
-    User,
 )
 
 
@@ -64,7 +68,8 @@ def create_workout(database: Session, user: User, payload: WorkoutCreate) -> Per
             song_artwork_url=block_payload.song.artwork_url,
             song_provider_identifier=(
                 block_payload.song.provider_identifier.model_dump(mode="json")
-                if block_payload.song.provider_identifier else None
+                if block_payload.song.provider_identifier
+                else None
             ),
             duration_seconds=block_payload.duration_seconds,
         )
@@ -94,10 +99,13 @@ def create_workout(database: Session, user: User, payload: WorkoutCreate) -> Per
     return serialize_workout(workout)
 
 
-def list_workouts(database: Session, user: User, page: int, page_size: int) -> Page[PersistedWorkout]:
-    total = database.scalar(
-        select(func.count()).select_from(Workout).where(Workout.user_id == user.id)
-    ) or 0
+def list_workouts(
+    database: Session, user: User, page: int, page_size: int
+) -> Page[PersistedWorkout]:
+    total = (
+        database.scalar(select(func.count()).select_from(Workout).where(Workout.user_id == user.id))
+        or 0
+    )
     workouts = database.scalars(
         select(Workout)
         .where(Workout.user_id == user.id)
@@ -201,9 +209,14 @@ def update_session(
 def list_sessions(
     database: Session, user: User, page: int, page_size: int
 ) -> Page[PersistedWorkoutSession]:
-    total = database.scalar(
-        select(func.count()).select_from(WorkoutSession).where(WorkoutSession.user_id == user.id)
-    ) or 0
+    total = (
+        database.scalar(
+            select(func.count())
+            .select_from(WorkoutSession)
+            .where(WorkoutSession.user_id == user.id)
+        )
+        or 0
+    )
     sessions = database.scalars(
         select(WorkoutSession)
         .where(WorkoutSession.user_id == user.id)
@@ -356,4 +369,6 @@ def _commit(database: Session) -> None:
         raise PersistenceConflictError("The database rejected a conflicting record.") from error
     except SQLAlchemyError as error:
         database.rollback()
-        raise PersistenceUnavailableError("The database operation could not be completed.") from error
+        raise PersistenceUnavailableError(
+            "The database operation could not be completed."
+        ) from error

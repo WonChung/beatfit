@@ -44,9 +44,7 @@ def update_preferences(
     updates = payload.model_dump(exclude_unset=True)
     for field_name in ("avoided_exercise_ids", "favorite_exercise_ids"):
         if field_name in updates and updates[field_name] is not None:
-            updates[field_name] = _validate_and_deduplicate_exercise_ids(
-                updates[field_name]
-            )
+            updates[field_name] = _validate_and_deduplicate_exercise_ids(updates[field_name])
     if "available_equipment" in updates and updates["available_equipment"] is not None:
         updates["available_equipment"] = list(
             dict.fromkeys(item.value for item in updates["available_equipment"])
@@ -160,8 +158,7 @@ def build_generation_personalization(
     return GenerationPersonalization(
         difficulty=effective_difficulty,
         prefer_exact_difficulty=(
-            signal == FeedbackRating.too_easy
-            and effective_difficulty != request.difficulty
+            signal == FeedbackRating.too_easy and effective_difficulty != request.difficulty
         ),
         work_seconds_delta=work_delta,
         rest_seconds_delta=rest_delta,
@@ -173,9 +170,7 @@ def build_generation_personalization(
 
 
 def _get_or_create_preferences(database: Session, user: User) -> UserPreference:
-    preference = database.scalar(
-        select(UserPreference).where(UserPreference.user_id == user.id)
-    )
+    preference = database.scalar(select(UserPreference).where(UserPreference.user_id == user.id))
     if preference is not None:
         return preference
     preference = UserPreference(user_id=user.id)
@@ -198,9 +193,7 @@ def _recent_matching_ratings(
         .order_by(WorkoutSession.ended_at.desc(), WorkoutSession.id.desc())
     )
     if preference.history_reset_at is not None:
-        statement = statement.where(
-            WorkoutSession.ended_at > preference.history_reset_at
-        )
+        statement = statement.where(WorkoutSession.ended_at > preference.history_reset_at)
 
     ratings: list[FeedbackRating] = []
     for session, raw_rating in database.execute(statement):
@@ -247,8 +240,7 @@ def _explanation_summary(
     parts: list[str] = []
     if signal == FeedbackRating.too_easy:
         parts.append(
-            "Workout intensity increased because two recent matching workouts were "
-            "rated too easy."
+            "Workout intensity increased because two recent matching workouts were rated too easy."
         )
     elif signal == FeedbackRating.too_hard:
         parts.append("Rest increased because two recent matching workouts were rated too hard.")
@@ -259,8 +251,7 @@ def _explanation_summary(
         )
     elif len(ratings) < 2:
         parts.append(
-            "No feedback adjustment was made because fewer than two matching ratings "
-            "are available."
+            "No feedback adjustment was made because fewer than two matching ratings are available."
         )
     else:
         parts.append("No feedback adjustment was made because recent matching ratings conflict.")
@@ -277,9 +268,7 @@ def _validate_and_deduplicate_exercise_ids(exercise_ids: list[str]) -> list[str]
     unknown = sorted(set(cleaned).difference(_CATALOG_IDS))
     if "" in cleaned or unknown:
         invalid = unknown or ["empty exercise ID"]
-        raise PersonalizationValidationError(
-            f"Unknown exercise preference: {', '.join(invalid)}."
-        )
+        raise PersonalizationValidationError(f"Unknown exercise preference: {', '.join(invalid)}.")
     return cleaned
 
 

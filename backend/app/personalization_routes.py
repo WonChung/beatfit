@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api_models import (
-    GenerateWorkoutRequest,
     GeneratedWorkout,
+    GenerateWorkoutRequest,
     UserPreferencesRead,
     UserPreferencesUpdate,
     WorkoutCreate,
@@ -15,6 +15,12 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.db_models import User
 from app.generator_service import generate_workout
+from app.persistence_service import (
+    PersistenceConflictError,
+    PersistenceUnavailableError,
+    PersistenceValidationError,
+    create_workout,
+)
 from app.personalization_service import (
     PersonalizationUnavailableError,
     PersonalizationValidationError,
@@ -23,13 +29,6 @@ from app.personalization_service import (
     reset_personalization,
     update_preferences,
 )
-from app.persistence_service import (
-    PersistenceConflictError,
-    PersistenceUnavailableError,
-    PersistenceValidationError,
-    create_workout,
-)
-
 
 router = APIRouter()
 Result = TypeVar("Result")

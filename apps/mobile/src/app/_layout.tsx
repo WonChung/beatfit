@@ -8,6 +8,8 @@ import { WorkoutProvider } from '@/state/workout-store';
 import { AuthProvider, useAuth } from '@/state/auth-store';
 import { PreferencesProvider } from '@/state/preferences-store';
 
+export { AppErrorBoundary as ErrorBoundary } from '@/components/app-error-boundary';
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {

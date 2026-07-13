@@ -13,8 +13,8 @@ from app.api_models import (
     WorkoutSessionCreate,
     WorkoutSessionUpdate,
 )
-from app.database import get_db
 from app.auth import get_current_user
+from app.database import get_db
 from app.db_models import User
 from app.persistence_service import (
     PersistenceConflictError,
@@ -29,7 +29,6 @@ from app.persistence_service import (
     list_workouts,
     update_session,
 )
-
 
 router = APIRouter()
 Result = TypeVar("Result")
