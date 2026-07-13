@@ -16,9 +16,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { generateWorkout } from '@/services/api';
+import { generatePersonalizedWorkout } from '@/services/api';
 import { spotifyMusicService } from '@/services/spotify';
 import { usePersistenceStore } from '@/state/persistence-store';
+import { usePreferences } from '@/state/preferences-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import { useAuth } from '@/state/auth-store';
 import type {
@@ -26,7 +27,10 @@ import type {
   Equipment,
   GenerateWorkoutRequest,
   MuscleGroup,
+  UserPreferences,
+  WorkoutGoal,
 } from '@/types/workout';
+import { preferencesToSetupDefaults, toggleEquipment } from '@/utils/preferences';
 import {
   durationToMilliseconds,
   validateWorkoutForm,
@@ -55,22 +59,57 @@ const EQUIPMENT: readonly { label: string; value: Equipment }[] = [
   { label: 'Gym', value: 'gym' },
 ];
 
+const GOALS: readonly { label: string; value: WorkoutGoal }[] = [
+  { label: 'Strength', value: 'strength' },
+  { label: 'Pump', value: 'pump' },
+  { label: 'Endurance', value: 'endurance' },
+  { label: 'Cardio', value: 'cardio' },
+];
+
 export default function HomeScreen() {
+  const { request } = useWorkoutStore();
+  const { preferences, isLoading, error } = usePreferences();
+
+  if (!request && isLoading) {
+    return (
+      <ThemedView style={styles.loadingScreen}>
+        <ActivityIndicator size="large" accessibilityLabel="Loading workout preferences" />
+        <ThemedText themeColor="textSecondary">Loading your workout preferences…</ThemedText>
+      </ThemedView>
+    );
+  }
+
+  return (
+    <WorkoutSetupScreen
+      key={`${request ? 'existing-setup' : 'default-setup'}-${preferences?.updated_at ?? 'defaults'}`}
+      preferences={preferences}
+      preferencesError={error}
+    />
+  );
+}
+
+function WorkoutSetupScreen({
+  preferences,
+  preferencesError,
+}: {
+  preferences: UserPreferences | null;
+  preferencesError: string | null;
+}) {
   const router = useRouter();
-  const { signOut, user } = useAuth();
+  const { session, signOut, user } = useAuth();
   const { recordGeneratedWorkout } = usePersistenceStore();
   const { request: previousRequest, saveGeneration, selectedSongs, setSelectedSongs } = useWorkoutStore();
+  const setupDefaults = preferencesToSetupDefaults(preferences, previousRequest);
   const previousSong = previousRequest?.songs[0];
   const submissionInProgress = useRef(false);
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>(
     previousRequest?.muscle_group ?? 'chest'
   );
   const [difficulty, setDifficulty] = useState<Difficulty>(
-    previousRequest?.difficulty ?? 'intermediate'
+    setupDefaults.difficulty
   );
-  const [equipment, setEquipment] = useState<Equipment>(
-    previousRequest?.equipment[0] ?? 'bodyweight'
-  );
+  const [equipment, setEquipment] = useState<Equipment[]>(setupDefaults.equipment);
+  const [goal, setGoal] = useState<WorkoutGoal>(setupDefaults.goal);
   const [title, setTitle] = useState(previousSong?.title ?? 'Song 1');
   const [artist, setArtist] = useState(previousSong?.artist ?? 'Test Artist');
   const [minutes, setMinutes] = useState(() =>
@@ -101,7 +140,8 @@ export default function HomeScreen() {
     const request: GenerateWorkoutRequest = {
       muscle_group: muscleGroup,
       difficulty,
-      equipment: [equipment],
+      equipment,
+      goal,
       songs: selectedSongs.length > 0 ? selectedSongs : [
         {
           title: title.trim(),
@@ -114,7 +154,8 @@ export default function HomeScreen() {
     submissionInProgress.current = true;
     setIsLoading(true);
     try {
-      const generatedWorkout = await generateWorkout(request);
+      if (!session?.access_token) throw new Error('Your session expired. Sign in again.');
+      const generatedWorkout = await generatePersonalizedWorkout(request, session.access_token);
       saveGeneration(request, generatedWorkout);
       await recordGeneratedWorkout(request, generatedWorkout).catch(() => undefined);
       router.push('/workout-preview');
@@ -180,7 +221,21 @@ export default function HomeScreen() {
                   History
                 </ThemedText>
               </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/preferences')}
+                style={({ pressed }) => [styles.libraryButton, { opacity: pressed ? 0.65 : 1 }]}>
+                <ThemedText type="smallBold" style={styles.libraryButtonText}>
+                  Settings
+                </ThemedText>
+              </Pressable>
             </View>
+
+            {preferencesError ? (
+              <ThemedText accessibilityRole="alert" type="small" style={styles.errorText}>
+                Preferences unavailable: {preferencesError} Defaults are shown instead.
+              </ThemedText>
+            ) : null}
 
             {selectedSongs.length > 0 ? (
               <ThemedView type="backgroundElement" style={styles.importedSongs}>
@@ -204,11 +259,21 @@ export default function HomeScreen() {
                 selectedValue={difficulty}
                 onSelect={setDifficulty}
               />
-              <OptionGroup
+              <MultiOptionGroup
                 label="Equipment"
                 options={EQUIPMENT}
-                selectedValue={equipment}
-                onSelect={setEquipment}
+                selectedValues={equipment}
+                disabledValues={EQUIPMENT.filter(
+                  (option) =>
+                    preferences && !preferences.available_equipment.includes(option.value)
+                ).map((option) => option.value)}
+                onToggle={(value) => setEquipment((current) => toggleEquipment(current, value))}
+              />
+              <OptionGroup
+                label="Workout goal"
+                options={GOALS}
+                selectedValue={goal}
+                onSelect={setGoal}
               />
 
               <FormInput
@@ -390,8 +455,67 @@ function OptionGroup<T extends string>({
   );
 }
 
+function MultiOptionGroup<T extends string>({
+  label,
+  options,
+  selectedValues,
+  disabledValues,
+  onToggle,
+}: {
+  label: string;
+  options: readonly { label: string; value: T }[];
+  selectedValues: readonly T[];
+  disabledValues: readonly T[];
+  onToggle: (value: T) => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.fieldGroup} accessibilityLabel={label}>
+      <InputLabel label={label} />
+      <View style={styles.optionGroup}>
+        {options.map((option) => {
+          const isSelected = selectedValues.includes(option.value);
+          const isDisabled = disabledValues.includes(option.value);
+
+          return (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel={option.label}
+              accessibilityState={{ checked: isSelected, disabled: isDisabled }}
+              disabled={isDisabled}
+              key={option.value}
+              onPress={() => onToggle(option.value)}
+              style={({ pressed }) => [
+                styles.optionButton,
+                {
+                  borderColor: isSelected ? '#2563eb' : theme.backgroundSelected,
+                  backgroundColor: isSelected ? '#2563eb' : theme.background,
+                  opacity: pressed || isDisabled ? 0.5 : 1,
+                },
+              ]}>
+              <ThemedText
+                type="smallBold"
+                style={isSelected ? styles.selectedOptionText : undefined}>
+                {option.label}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
+    padding: Spacing.four,
+  },
   safeArea: { flex: 1 },
   keyboardView: { flex: 1 },
   content: {

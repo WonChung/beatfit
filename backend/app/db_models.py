@@ -40,6 +40,42 @@ class User(TimestampMixin, Base):
 
     workouts: Mapped[list["Workout"]] = relationship(back_populates="user")
     sessions: Mapped[list["WorkoutSession"]] = relationship(back_populates="user")
+    preferences: Mapped["UserPreference | None"] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+
+
+class UserPreference(TimestampMixin, Base):
+    __tablename__ = "user_preferences"
+    __table_args__ = (
+        UniqueConstraint("user_id"),
+        Index("ix_user_preferences_user_id", "user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    default_difficulty: Mapped[str] = mapped_column(
+        String(32), default="intermediate", nullable=False
+    )
+    available_equipment: Mapped[list[str]] = mapped_column(
+        JSON, default=lambda: ["bodyweight"], nullable=False
+    )
+    preferred_goal: Mapped[str] = mapped_column(
+        String(32), default="endurance", nullable=False
+    )
+    avoided_exercise_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    favorite_exercise_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    high_impact_allowed: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    work_rest_preference: Mapped[str] = mapped_column(
+        String(32), default="balanced", nullable=False
+    )
+    history_reset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship(back_populates="preferences")
 
 
 class Workout(TimestampMixin, Base):

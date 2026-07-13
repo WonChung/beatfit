@@ -56,6 +56,8 @@ Interactive documentation is available at `http://127.0.0.1:8000/docs`.
 - `app/api_models.py`: Pydantic request and response schemas.
 - `app/exercise_catalog.py`: seeded exercise data and catalog filtering.
 - `app/generator_service.py`: playlist-aware workout generation.
+- `app/personalization_service.py`: deterministic preference and recent-feedback rules.
+- `app/personalization_routes.py`: authenticated preference and personalized-generation API.
 - `app/routes.py`: FastAPI route handlers.
 - `app/database.py`: SQLAlchemy engine, sessions, and declarative base.
 - `app/db_models.py`: normalized persistence models.
@@ -117,6 +119,55 @@ Equipment values are `bodyweight`, `dumbbells`, and `gym`.
 
 The response keeps the original workout fields and also includes `goal` and an
 optional `exercise_id` on each interval. Rest intervals have no exercise ID.
+It also includes a neutral `personalization` explanation. The public endpoint
+remains unpersonalized and backward compatible.
+
+## Rule-based personalization
+
+Authenticated clients manage preferences with:
+
+- `GET /user-preferences`: read preferences, creating safe defaults when needed.
+- `PUT /user-preferences`: partially update supplied preference fields.
+- `POST /user-preferences/reset`: ignore feedback history recorded before the
+  reset time without deleting saved preferences or sessions.
+- `POST /workouts/generate/personalized`: generate with preferences and recent
+  matching feedback, persist the result for the authenticated user, and return
+  its `workout_id`.
+
+Preferences include default difficulty, available equipment, preferred goal,
+avoided and favorite exercise catalog IDs, whether high-impact movements are
+allowed, and a `balanced`, `more_work`, or `more_rest` timing preference. The
+default difficulty and goal are UI defaults; the explicit difficulty, muscle
+group, and goal in a generation request remain authoritative.
+
+Personalization examines at most the three most recent rated sessions after
+the last reset whose workout snapshot matches both the requested muscle group
+and goal. A timing/difficulty feedback change requires at least two
+`too_easy` or two `too_hard` ratings and no rating of the opposite extreme in
+that window:
+
+- Two `too_easy` ratings raise difficulty by at most one level, add 5 seconds
+  of work, and remove 3 seconds of rest.
+- Two `too_hard` ratings lower difficulty by at most one level, remove 5
+  seconds of work, and add 5 seconds of rest.
+- `about_right`, insufficient history, and conflicting extremes do not change
+  the feedback-driven structure.
+- `more_work` and `more_rest` add the same modest timing bias independently of
+  feedback.
+
+All rules are deterministic when `random_seed` is supplied. Requested
+equipment must be present in the user's available-equipment preference or the
+request returns `422`. Avoided exercises, high-impact opt-out, request
+equipment, selected muscle group, and selected goal are hard constraints.
+Avoiding an exercise wins if the same ID is also a favorite. Compatible
+favorites are preferred only after repetition and movement-pattern rules.
+
+Every generated workout returns a structured `personalization` object with a
+plain-language `summary`, the feedback signal, number of matching sessions
+considered, and a list of exact adjustments. No LLM or external AI service is
+used. Public generation returns `workout_id: null`; authenticated personalized
+generation returns an owned ID that is immediately available through
+`GET /workouts/{id}`.
 
 ## Persistence API
 
@@ -132,6 +183,9 @@ List responses contain `items`, `page`, `page_size`, and `total`. Page size is
 limited to 100. Workout deletion cascades through blocks, intervals, and saved
 workout metadata. Sessions retain a JSON workout snapshot and survive deletion
 of the source workout.
+
+Migration `20260713_0003` adds the one-to-one `user_preferences` table. Apply
+it with the normal `alembic upgrade head` command above.
 
 ## Exercise catalog
 

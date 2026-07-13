@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useState } from 'react';
 import AppleMusicBrowser from '@/components/apple-music-browser';
 import SpotifyMusicBrowser from '@/components/spotify-music-browser';
@@ -20,7 +21,7 @@ export default function DashboardShell({ email, userId }: { email: string; userI
   }
   return (
     <>
-      <div className="account-bar"><span>{email}</span><button type="button" onClick={signOut}>Sign out</button></div>
+      <div className="account-bar"><span>{email}</span><Link href="/dashboard/settings">Preferences</Link><button type="button" onClick={signOut}>Sign out</button></div>
       {process.env.NEXT_PUBLIC_APPLE_MUSIC_ENABLED === 'true' ? <AppleMusicBrowser onSelect={setSelectedSongs} /> : null}
       {process.env.NEXT_PUBLIC_SPOTIFY_ENABLED === 'true' ? <SpotifyMusicBrowser beatFitUserId={userId} onSelect={setSelectedSongs} /> : null}
       <WorkoutApp importedSongs={selectedSongs} />

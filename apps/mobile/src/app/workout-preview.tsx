@@ -14,7 +14,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { generateWorkout } from '@/services/api';
+import { generatePersonalizedWorkout } from '@/services/api';
+import { useAuth } from '@/state/auth-store';
 import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutBlock, WorkoutInterval } from '@/types/workout';
@@ -41,6 +42,7 @@ const FALLBACK_INTERVAL_COLORS = {
 export default function WorkoutPreviewScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const { session } = useAuth();
   const {
     error: storageError,
     recordGeneratedWorkout,
@@ -53,6 +55,7 @@ export default function WorkoutPreviewScreen() {
   const [workoutName, setWorkoutName] = useState('My BeatFit Workout');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPersonalizationDetails, setShowPersonalizationDetails] = useState(false);
 
   async function handleGenerateAgain() {
     if (!request || regenerationInProgress.current) return;
@@ -61,7 +64,8 @@ export default function WorkoutPreviewScreen() {
     setIsRegenerating(true);
     setRegenerationError(null);
     try {
-      const regeneratedWorkout = await generateWorkout(request);
+      if (!session?.access_token) throw new Error('Your session expired. Sign in again.');
+      const regeneratedWorkout = await generatePersonalizedWorkout(request, session.access_token);
       replaceWorkout(regeneratedWorkout);
       await recordGeneratedWorkout(request, regeneratedWorkout).catch(() => undefined);
     } catch (caughtError) {
@@ -117,12 +121,60 @@ export default function WorkoutPreviewScreen() {
           <ThemedView type="backgroundElement" style={styles.summaryCard}>
             <SummaryItem label="Muscle group" value={formatMuscleGroup(workout.muscle_group)} />
             <SummaryItem label="Difficulty" value={toReadableLabel(workout.difficulty)} />
+            <SummaryItem label="Goal" value={toReadableLabel(workout.goal ?? request.goal ?? 'endurance')} />
             <SummaryItem
               label="Equipment"
               value={workout.equipment.map(toReadableLabel).join(', ') || 'None'}
             />
             <SummaryItem label="Total duration" value={formatTotalWorkoutDuration(workout)} />
           </ThemedView>
+
+          {workout.personalization ? (
+            <ThemedView type="backgroundElement" style={styles.personalizationCard}>
+              <View style={styles.personalizationHeading}>
+                <ThemedText type="smallBold">Why this workout?</ThemedText>
+                {workout.personalization.personalized ? (
+                  <View style={styles.adjustedBadge}>
+                    <ThemedText type="smallBold" style={styles.adjustedBadgeText}>
+                      Adjusted for you
+                    </ThemedText>
+                  </View>
+                ) : null}
+              </View>
+              <ThemedText>{workout.personalization.summary}</ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showPersonalizationDetails }}
+                onPress={() => setShowPersonalizationDetails((visible) => !visible)}
+                style={styles.whyButton}>
+                <ThemedText type="smallBold" style={styles.secondaryButtonText}>
+                  {showPersonalizationDetails ? 'Hide details' : 'View why adjusted'}
+                </ThemedText>
+              </Pressable>
+              {showPersonalizationDetails ? (
+                <View style={styles.explanationDetails}>
+                  {workout.personalization.adjustments.length > 0 ? (
+                    workout.personalization.adjustments.map((adjustment, index) => (
+                      <ThemedText key={`${adjustment}-${index}`} type="small">
+                        • {adjustment}
+                      </ThemedText>
+                    ))
+                  ) : (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      No feedback-based timing or difficulty adjustment was needed.
+                    </ThemedText>
+                  )}
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {workout.personalization.history_sessions_considered} recent feedback session
+                    {workout.personalization.history_sessions_considered === 1 ? '' : 's'} considered
+                    {workout.personalization.feedback_signal
+                      ? ` · signal: ${toReadableLabel(workout.personalization.feedback_signal)}`
+                      : ''}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </ThemedView>
+          ) : null}
 
           {workout.blocks.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.messageCard}>
@@ -381,6 +433,29 @@ const styles = StyleSheet.create({
   intervalDetails: { flex: 1, gap: Spacing.one },
   actions: { gap: Spacing.two },
   saveCard: { padding: Spacing.three, borderRadius: Spacing.three, gap: Spacing.two },
+  personalizationCard: {
+    padding: Spacing.three,
+    borderRadius: Spacing.three,
+    gap: Spacing.two,
+    borderWidth: 1,
+    borderColor: '#2563eb',
+  },
+  personalizationHeading: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  adjustedBadge: {
+    backgroundColor: '#2563eb',
+    paddingVertical: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    borderRadius: Spacing.two,
+  },
+  adjustedBadgeText: { color: '#ffffff' },
+  whyButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
+  explanationDetails: { gap: Spacing.one },
   nameInput: {
     minHeight: 48,
     borderWidth: 1,

@@ -13,6 +13,7 @@ from app.domain import (
     MuscleGroup,
     SessionStatus,
     WorkoutGoal,
+    WorkRestPreference,
 )
 
 
@@ -80,12 +81,51 @@ class WorkoutBlock(BaseModel):
     intervals: list[WorkoutInterval]
 
 
+class PersonalizationExplanation(BaseModel):
+    personalized: bool = False
+    summary: str = "No personalization was applied."
+    feedback_signal: FeedbackRating | None = None
+    history_sessions_considered: int = 0
+    adjustments: list[str] = Field(default_factory=list)
+
+
+def _neutral_personalization() -> PersonalizationExplanation:
+    return PersonalizationExplanation()
+
+
 class GeneratedWorkout(BaseModel):
+    workout_id: UUID | None = None
     muscle_group: MuscleGroup
     difficulty: Difficulty
     equipment: list[Equipment]
     goal: WorkoutGoal
     blocks: list[WorkoutBlock]
+    personalization: PersonalizationExplanation = Field(default_factory=_neutral_personalization)
+
+
+class UserPreferencesRead(BaseModel):
+    default_difficulty: Difficulty
+    available_equipment: list[Equipment]
+    preferred_goal: WorkoutGoal
+    avoided_exercise_ids: list[str]
+    favorite_exercise_ids: list[str]
+    high_impact_allowed: bool
+    work_rest_preference: WorkRestPreference
+    history_reset_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserPreferencesUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    default_difficulty: Difficulty | None = None
+    available_equipment: list[Equipment] | None = Field(default=None, min_length=1)
+    preferred_goal: WorkoutGoal | None = None
+    avoided_exercise_ids: list[str] | None = None
+    favorite_exercise_ids: list[str] | None = None
+    high_impact_allowed: bool | None = None
+    work_rest_preference: WorkRestPreference | None = None
 
 
 class ExerciseResponse(BaseModel):

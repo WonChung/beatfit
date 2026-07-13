@@ -12,9 +12,15 @@ import {
 } from "./timer";
 
 const workout: GenerateWorkoutResponse = {
+  workout_id: "11111111-1111-4111-8111-111111111111",
   muscle_group: "core",
   difficulty: "intermediate",
   equipment: ["bodyweight"],
+  goal: "endurance",
+  personalization: {
+    personalized: false, summary: "No personalization was applied.", feedback_signal: null,
+    history_sessions_considered: 0, adjustments: [],
+  },
   blocks: [{
     song: { title: "Song", artist: "Artist", duration_ms: 5000 },
     duration_seconds: 5,

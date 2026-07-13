@@ -7,6 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useWorkoutTimer } from '@/hooks/use-workout-timer';
+import { persistWorkoutSession } from '@/services/api';
+import { useAuth } from '@/state/auth-store';
 import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutTimerStatus } from '@/timer/workout-timer';
@@ -22,6 +24,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function WorkoutPlayerScreen() {
   const router = useRouter();
+  const { session: authSession } = useAuth();
   const { recordSession } = usePersistenceStore();
   const { workout, saveSession } = useWorkoutStore();
   const sessionStartedAt = useRef<number | null>(null);
@@ -30,18 +33,19 @@ export default function WorkoutPlayerScreen() {
     async (completedIndices: number[]) => {
       if (!workout) return;
       const endTimeMs = Date.now();
-      const session = createWorkoutSession({
+      let session = createWorkoutSession({
         workout,
         startTimeMs: sessionStartedAt.current ?? endTimeMs,
         endTimeMs,
         completedIndices,
         status: 'completed',
       });
+      session = await syncSession(workout.workout_id, session, authSession?.access_token);
       saveSession(session);
       await recordSession(session).catch(() => undefined);
       router.replace('/workout-complete');
     },
-    [recordSession, router, saveSession, workout]
+    [authSession?.access_token, recordSession, router, saveSession, workout]
   );
   const timer = useWorkoutTimer(workout, { onComplete: handleComplete });
   useEffect(() => {
@@ -56,13 +60,14 @@ export default function WorkoutPlayerScreen() {
   async function finishEarly() {
     if (!workout) return;
     const endTimeMs = Date.now();
-    const session = createWorkoutSession({
+    let session = createWorkoutSession({
       workout,
       startTimeMs: sessionStartedAt.current ?? endTimeMs,
       endTimeMs,
       completedIndices: completedIndicesRef.current,
       status: 'ended_early',
     });
+    session = await syncSession(workout.workout_id, session, authSession?.access_token);
     saveSession(session);
     await recordSession(session).catch(() => undefined);
     router.replace('/workout-complete');
@@ -193,6 +198,33 @@ export default function WorkoutPlayerScreen() {
       </SafeAreaView>
     </ThemedView>
   );
+}
+
+async function syncSession(
+  workoutId: string | null | undefined,
+  session: ReturnType<typeof createWorkoutSession>,
+  accessToken: string | undefined
+) {
+  if (!workoutId || !accessToken) {
+    return {
+      ...session,
+      remoteSyncError: 'This session was saved on this device, but not to your BeatFit account.',
+    };
+  }
+  try {
+    return {
+      ...session,
+      serverSessionId: await persistWorkoutSession(workoutId, session, accessToken),
+    };
+  } catch (caughtError) {
+    return {
+      ...session,
+      remoteSyncError:
+        caughtError instanceof Error
+          ? `Account sync failed: ${caughtError.message}`
+          : 'Account sync failed. This session is still saved on this device.',
+    };
+  }
 }
 
 function PrimaryTimerControl({

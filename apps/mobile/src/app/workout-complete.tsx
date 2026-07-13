@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { persistWorkoutSessionFeedback } from '@/services/api';
+import { useAuth } from '@/state/auth-store';
 import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import type { WorkoutFeedback } from '@/types/workout';
@@ -22,8 +25,10 @@ const FEEDBACK_OPTIONS: readonly { label: string; value: WorkoutFeedback }[] = [
 
 export default function WorkoutCompleteScreen() {
   const router = useRouter();
+  const { session: authSession } = useAuth();
   const { error: storageError, persistSessionFeedback } = usePersistenceStore();
   const { session, clearSession, setSessionFeedback } = useWorkoutStore();
+  const [feedbackSyncError, setFeedbackSyncError] = useState<string | null>(null);
 
   if (!session) {
     return (
@@ -52,6 +57,24 @@ export default function WorkoutCompleteScreen() {
   async function handleFeedback(feedback: WorkoutFeedback) {
     setSessionFeedback(feedback);
     await persistSessionFeedback(sessionId, feedback).catch(() => undefined);
+    setFeedbackSyncError(null);
+    if (session?.serverSessionId && authSession?.access_token) {
+      try {
+        await persistWorkoutSessionFeedback(
+          session.serverSessionId,
+          feedback,
+          authSession.access_token
+        );
+      } catch (caughtError) {
+        setFeedbackSyncError(
+          caughtError instanceof Error
+            ? `Feedback saved locally, but account sync failed: ${caughtError.message}`
+            : 'Feedback saved locally, but account sync failed.'
+        );
+      }
+    } else {
+      setFeedbackSyncError('Feedback was saved on this device but could not sync to your account.');
+    }
   }
 
   return (
@@ -155,6 +178,16 @@ export default function WorkoutCompleteScreen() {
               {storageError}
             </ThemedText>
           )}
+          {session.remoteSyncError ? (
+            <ThemedText accessibilityRole="alert" style={styles.errorText}>
+              {session.remoteSyncError}
+            </ThemedText>
+          ) : null}
+          {feedbackSyncError ? (
+            <ThemedText accessibilityRole="alert" style={styles.errorText}>
+              {feedbackSyncError}
+            </ThemedText>
+          ) : null}
 
           <View style={styles.actions}>
             <ActionButton label="Repeat Workout" variant="primary" onPress={handleRepeatWorkout} />

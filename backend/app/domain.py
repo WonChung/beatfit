@@ -65,6 +65,12 @@ class FeedbackRating(StrEnum):
     too_hard = "too_hard"
 
 
+class WorkRestPreference(StrEnum):
+    balanced = "balanced"
+    more_work = "more_work"
+    more_rest = "more_rest"
+
+
 @dataclass(frozen=True, slots=True)
 class Exercise:
     id: str

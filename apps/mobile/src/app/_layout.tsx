@@ -6,6 +6,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { PersistenceProvider } from '@/state/persistence-store';
 import { WorkoutProvider } from '@/state/workout-store';
 import { AuthProvider, useAuth } from '@/state/auth-store';
+import { PreferencesProvider } from '@/state/preferences-store';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,10 +16,12 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
         <PersistenceProvider>
-          <WorkoutProvider>
-            <AnimatedSplashOverlay />
-            <AuthenticatedStack />
-          </WorkoutProvider>
+          <PreferencesProvider>
+            <WorkoutProvider>
+              <AnimatedSplashOverlay />
+              <AuthenticatedStack />
+            </WorkoutProvider>
+          </PreferencesProvider>
         </PersistenceProvider>
       </AuthProvider>
     </ThemeProvider>
@@ -45,6 +48,7 @@ function AuthenticatedStack() {
         <Stack.Screen name="workout-player" options={{ title: 'Workout' }} />
         <Stack.Screen name="saved-workouts" options={{ title: 'Saved Workouts' }} />
         <Stack.Screen name="workout-history" options={{ title: 'Workout History' }} />
+        <Stack.Screen name="preferences" options={{ title: 'Workout Preferences' }} />
         <Stack.Screen name="apple-music" options={{ title: 'Apple Music' }} />
         <Stack.Screen name="spotify" options={{ title: 'Spotify' }} />
         <Stack.Screen
