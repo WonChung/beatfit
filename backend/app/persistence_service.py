@@ -61,6 +61,11 @@ def create_workout(database: Session, user: User, payload: WorkoutCreate) -> Per
             song_title=block_payload.song.title,
             song_artist=block_payload.song.artist,
             song_duration_ms=block_payload.song.duration_ms,
+            song_artwork_url=block_payload.song.artwork_url,
+            song_provider_identifier=(
+                block_payload.song.provider_identifier.model_dump(mode="json")
+                if block_payload.song.provider_identifier else None
+            ),
             duration_seconds=block_payload.duration_seconds,
         )
         block.intervals = [
@@ -230,6 +235,8 @@ def serialize_workout(workout: Workout) -> PersistedWorkout:
                     title=block.song_title,
                     artist=block.song_artist,
                     duration_ms=block.song_duration_ms,
+                    artwork_url=block.song_artwork_url,
+                    provider_identifier=block.song_provider_identifier,
                 ),
                 duration_seconds=block.duration_seconds,
                 intervals=[

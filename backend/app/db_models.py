@@ -78,6 +78,8 @@ class WorkoutBlock(Base):
     song_title: Mapped[str] = mapped_column(String(240), nullable=False)
     song_artist: Mapped[str] = mapped_column(String(240), nullable=False)
     song_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    song_artwork_url: Mapped[str | None] = mapped_column(Text)
+    song_provider_identifier: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     duration_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

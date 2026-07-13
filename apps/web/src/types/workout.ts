@@ -14,6 +14,15 @@ export interface Song {
   title: string;
   artist: string;
   duration_ms: number;
+  artwork_url?: string;
+  provider_identifier?: ProviderIdentifier;
+}
+
+export interface ProviderIdentifier {
+  provider: "apple_music";
+  catalog_id: string;
+  library_id?: string;
+  storefront: string;
 }
 
 export interface WorkoutInterval {

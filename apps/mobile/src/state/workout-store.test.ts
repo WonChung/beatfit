@@ -40,13 +40,13 @@ describe('workoutReducer', () => {
   it('stores the original request with a generated workout', () => {
     expect(
       workoutReducer(initialWorkoutState, { type: 'save-generation', request, workout })
-    ).toEqual({ request, workout, session: null });
+    ).toEqual({ request, workout, session: null, selectedSongs: [] });
   });
 
   it('replaces only the workout when regenerating', () => {
     const regenerated = { ...workout, difficulty: 'advanced' as const };
     const state = workoutReducer(
-      { request, workout, session },
+      { request, workout, session, selectedSongs: [] },
       { type: 'replace-workout', workout: regenerated }
     );
 
@@ -57,7 +57,7 @@ describe('workoutReducer', () => {
 
   it('stores a completed session and updates its feedback', () => {
     const withSession = workoutReducer(
-      { request, workout, session: null },
+      { request, workout, session: null, selectedSongs: [] },
       { type: 'save-session', session }
     );
     const withFeedback = workoutReducer(withSession, {
@@ -71,14 +71,14 @@ describe('workoutReducer', () => {
 
   it('clears a session without clearing the reusable workout', () => {
     const state = workoutReducer(
-      { request, workout, session },
+      { request, workout, session, selectedSongs: [] },
       { type: 'clear-session' }
     );
-    expect(state).toEqual({ request, workout, session: null });
+    expect(state).toEqual({ request, workout, session: null, selectedSongs: [] });
   });
 
   it('clears the current generation', () => {
-    expect(workoutReducer({ request, workout, session }, { type: 'clear' })).toBe(
+    expect(workoutReducer({ request, workout, session, selectedSongs: [] }, { type: 'clear' })).toBe(
       initialWorkoutState
     );
   });

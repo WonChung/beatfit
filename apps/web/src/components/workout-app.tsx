@@ -49,7 +49,7 @@ const EQUIPMENT: { label: string; value: Equipment }[] = [
   { label: "Gym", value: "gym" },
 ];
 
-export default function WorkoutApp() {
+export default function WorkoutApp({ importedSongs = [] }: { importedSongs?: GenerateWorkoutRequest['songs'] }) {
   const [phase, setPhase] = useState<Phase>("setup");
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup>("chest");
   const [difficulty, setDifficulty] = useState<Difficulty>("intermediate");
@@ -75,7 +75,7 @@ export default function WorkoutApp() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submissionLock.current) return;
-    const validationErrors = validateWorkoutForm({ title, artist, minutes, seconds });
+    const validationErrors = importedSongs.length > 0 ? {} : validateWorkoutForm({ title, artist, minutes, seconds });
     setErrors(validationErrors);
     setApiError(null);
     if (Object.keys(validationErrors).length > 0) return;
@@ -84,7 +84,7 @@ export default function WorkoutApp() {
       muscle_group: muscleGroup,
       difficulty,
       equipment: [equipment],
-      songs: [{
+      songs: importedSongs.length > 0 ? importedSongs : [{
         title: title.trim(), artist: artist.trim(),
         duration_ms: durationToMilliseconds(minutes, seconds),
       }],
@@ -134,6 +134,7 @@ export default function WorkoutApp() {
       </section>
 
       <section id="workout-builder" className="app-shell" aria-live="polite">
+        {importedSongs.length > 0 ? <p className="imported-track-notice" role="status">Using {importedSongs.length} selected Apple Music track{importedSongs.length === 1 ? '' : 's'}.</p> : null}
         <StepIndicator phase={phase} />
         {phase === "setup" && (
           <SetupForm

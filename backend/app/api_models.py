@@ -16,10 +16,34 @@ from app.domain import (
 )
 
 
+class ProviderIdentifier(BaseModel):
+    provider: str
+    catalog_id: str
+    library_id: str | None = None
+    storefront: str
+
+
 class Song(BaseModel):
     title: str = Field(min_length=1)
     artist: str = Field(min_length=1)
     duration_ms: int = Field(gt=0)
+    artwork_url: str | None = None
+    provider_identifier: ProviderIdentifier | None = None
+
+
+class AppleMusicTrack(BaseModel):
+    id: str
+    title: str
+    artist: str
+    duration_ms: int | None
+    artwork_url: str | None = None
+    is_playable: bool = True
+    provider_identifier: ProviderIdentifier
+
+
+class AppleDeveloperToken(BaseModel):
+    token: str
+    expires_at: int
 
 
 class GenerateWorkoutRequest(BaseModel):

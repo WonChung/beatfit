@@ -79,6 +79,8 @@ def test_workout_crud_and_pagination(client: TestClient):
     assert created.status_code == 201
     workout_id = created.json()["id"]
     assert created.json()["blocks"][0]["intervals"][0]["exercise_id"] == "core-plank"
+    assert created.json()["blocks"][0]["song"]["artwork_url"] == "https://example.test/art.jpg"
+    assert created.json()["blocks"][0]["song"]["provider_identifier"]["catalog_id"] == "catalog-1"
 
     listing = client.get("/workouts", params={"page": 1, "page_size": 1})
     assert listing.status_code == 200
@@ -204,7 +206,14 @@ def _workout_payload(name: str | None = None) -> dict:
         "random_seed": 7,
         "blocks": [
             {
-                "song": {"title": "Song", "artist": "Artist", "duration_ms": 30_000},
+                "song": {
+                    "title": "Song", "artist": "Artist", "duration_ms": 30_000,
+                    "artwork_url": "https://example.test/art.jpg",
+                    "provider_identifier": {
+                        "provider": "apple_music", "catalog_id": "catalog-1",
+                        "library_id": "library-1", "storefront": "us",
+                    },
+                },
                 "duration_seconds": 30,
                 "intervals": [
                     {

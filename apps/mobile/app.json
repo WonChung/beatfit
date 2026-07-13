@@ -8,9 +8,14 @@
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.beatfit.mobile",
+      "infoPlist": {
+        "NSAppleMusicUsageDescription": "BeatFit uses your Apple Music library so you can select songs for workouts."
+      }
     },
     "android": {
+      "package": "com.beatfit.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
