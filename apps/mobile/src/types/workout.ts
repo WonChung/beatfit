@@ -19,12 +19,19 @@ export interface Song {
   provider_identifier?: ProviderIdentifier;
 }
 
-export interface ProviderIdentifier {
+export interface AppleMusicProviderIdentifier {
   provider: 'apple_music';
   catalog_id: string;
-  library_id?: string;
+  library_id?: string | null;
   storefront: string;
 }
+
+export interface SpotifyProviderIdentifier {
+  provider: 'spotify';
+  catalog_id: string;
+}
+
+export type ProviderIdentifier = AppleMusicProviderIdentifier | SpotifyProviderIdentifier;
 
 export interface WorkoutInterval {
   start_seconds: number;

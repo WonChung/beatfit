@@ -134,7 +134,7 @@ export default function WorkoutApp({ importedSongs = [] }: { importedSongs?: Gen
       </section>
 
       <section id="workout-builder" className="app-shell" aria-live="polite">
-        {importedSongs.length > 0 ? <p className="imported-track-notice" role="status">Using {importedSongs.length} selected Apple Music track{importedSongs.length === 1 ? '' : 's'}.</p> : null}
+        {importedSongs.length > 0 ? <p className="imported-track-notice" role="status">Using {importedSongs.length} selected music track{importedSongs.length === 1 ? '' : 's'}.</p> : null}
         <StepIndicator phase={phase} />
         {phase === "setup" && (
           <SetupForm

@@ -1,4 +1,5 @@
 import type { Song } from '@/types/workout';
+import type { MusicProviderPage, MusicProviderService } from '@/services/music-provider';
 
 export type AppleMusicAuthorizationStatus =
   | 'not_determined'
@@ -22,10 +23,7 @@ export interface AppleMusicTrack extends Song {
   isPlayable: boolean;
 }
 
-export interface AppleMusicPage<T> {
-  items: T[];
-  next?: string;
-}
+export type AppleMusicPage<T> = MusicProviderPage<T>;
 
 export interface AppleMusicCapabilities {
   personalizedLibrary: boolean;
@@ -33,13 +31,8 @@ export interface AppleMusicCapabilities {
   reason?: string;
 }
 
-export interface AppleMusicService {
+export interface AppleMusicService extends MusicProviderService<AppleMusicAuthorizationStatus, AppleMusicPlaylist, AppleMusicTrack> {
   capabilities(): AppleMusicCapabilities;
-  authorizationStatus(): Promise<AppleMusicAuthorizationStatus>;
-  authorize(): Promise<AppleMusicAuthorizationStatus>;
-  disconnect(): Promise<void>;
-  listPlaylists(page?: string): Promise<AppleMusicPage<AppleMusicPlaylist>>;
-  getPlaylistTracks(id: string, page?: string): Promise<AppleMusicPage<AppleMusicTrack>>;
 }
 
 export class AppleMusicError extends Error {

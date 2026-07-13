@@ -27,6 +27,40 @@ def test_valid_chest_workout_request():
     assert data["blocks"][0]["intervals"][-1]["type"] == "burnout"
 
 
+def test_spotify_song_metadata_does_not_require_apple_storefront():
+    payload = _request_payload()
+    payload["songs"][0].update(
+        {
+            "artwork_url": "https://i.scdn.co/image/example",
+            "provider_identifier": {
+                "provider": "spotify",
+                "catalog_id": "spotify-track-1",
+            },
+        }
+    )
+
+    response = client.post("/workouts/generate", json=payload)
+
+    assert response.status_code == 200
+    song = response.json()["blocks"][0]["song"]
+    assert song["provider_identifier"] == {
+        "provider": "spotify",
+        "catalog_id": "spotify-track-1",
+    }
+
+
+def test_apple_song_metadata_still_requires_storefront():
+    payload = _request_payload()
+    payload["songs"][0]["provider_identifier"] = {
+        "provider": "apple_music",
+        "catalog_id": "apple-track-1",
+    }
+
+    response = client.post("/workouts/generate", json=payload)
+
+    assert response.status_code == 422
+
+
 def test_intervals_are_non_overlapping():
     response = client.post("/workouts/generate", json=_request_payload())
 

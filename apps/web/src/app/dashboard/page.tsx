@@ -8,5 +8,8 @@ export default async function DashboardPage() {
   const { data } = await supabase.auth.getClaims();
   const claims = data?.claims;
   if (!shouldAllowDashboard(Boolean(claims?.sub))) redirect('/?auth=required');
-  return <DashboardShell email={typeof claims?.email === 'string' ? claims.email : 'Signed in'} />;
+  return <DashboardShell
+    email={typeof claims?.email === 'string' ? claims.email : 'Signed in'}
+    userId={String(claims!.sub)}
+  />;
 }

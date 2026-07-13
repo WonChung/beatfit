@@ -2,7 +2,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
-from app.api_models import AppleDeveloperToken, AppleMusicTrack, Page, ProviderIdentifier
+from app.api_models import AppleDeveloperToken, AppleMusicProviderIdentifier, AppleMusicTrack, Page
 from app.apple_music import (
     AppleMusicCatalog,
     AppleMusicConfigurationError,
@@ -68,7 +68,7 @@ def _normalize_track(resource: Any, storefront: str) -> AppleMusicTrack | None:
         duration_ms=duration if isinstance(duration, int) and duration > 0 else None,
         artwork_url=artwork_url,
         is_playable=attributes.get("playParams") is not None,
-        provider_identifier=ProviderIdentifier(
+        provider_identifier=AppleMusicProviderIdentifier(
             provider="apple_music", catalog_id=resource["id"], storefront=storefront
         ),
     )

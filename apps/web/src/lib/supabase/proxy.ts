@@ -17,7 +17,9 @@ export async function updateSession(request: NextRequest) {
   });
 
   const { data } = await supabase.auth.getClaims();
-  if (request.nextUrl.pathname.startsWith('/dashboard') && !data?.claims?.sub) {
+  const requiresBeatFitSession = request.nextUrl.pathname.startsWith('/dashboard')
+    || request.nextUrl.pathname === '/auth/spotify/callback';
+  if (requiresBeatFitSession && !data?.claims?.sub) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     url.searchParams.set('auth', 'required');

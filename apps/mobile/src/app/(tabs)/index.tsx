@@ -17,6 +17,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { generateWorkout } from '@/services/api';
+import { spotifyMusicService } from '@/services/spotify';
 import { usePersistenceStore } from '@/state/persistence-store';
 import { useWorkoutStore } from '@/state/workout-store';
 import { useAuth } from '@/state/auth-store';
@@ -82,6 +83,11 @@ export default function HomeScreen() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  async function handleSignOut() {
+    await spotifyMusicService.disconnect().catch(() => undefined);
+    await signOut();
+  }
+
   async function handleGenerateWorkout() {
     if (submissionInProgress.current) return;
 
@@ -140,7 +146,7 @@ export default function HomeScreen() {
                 Turn one song into a timed workout.
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">{user?.email}</ThemedText>
-              <Pressable accessibilityRole="button" onPress={() => void signOut()} style={styles.signOutButton}>
+              <Pressable accessibilityRole="button" onPress={() => void handleSignOut()} style={styles.signOutButton}>
                 <ThemedText type="smallBold">Sign out</ThemedText>
               </Pressable>
             </View>
@@ -151,6 +157,12 @@ export default function HomeScreen() {
                 onPress={() => router.push('/apple-music')}
                 style={({ pressed }) => [styles.libraryButton, { opacity: pressed ? 0.65 : 1 }]}>
                 <ThemedText type="smallBold" style={styles.libraryButtonText}>Apple Music</ThemedText>
+              </Pressable> : null}
+              {process.env.EXPO_PUBLIC_SPOTIFY_ENABLED === 'true' ? <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/spotify')}
+                style={({ pressed }) => [styles.libraryButton, { opacity: pressed ? 0.65 : 1 }]}>
+                <ThemedText type="smallBold" style={styles.libraryButtonText}>Spotify</ThemedText>
               </Pressable> : null}
               <Pressable
                 accessibilityRole="button"
@@ -172,7 +184,7 @@ export default function HomeScreen() {
 
             {selectedSongs.length > 0 ? (
               <ThemedView type="backgroundElement" style={styles.importedSongs}>
-                <ThemedText type="smallBold">{selectedSongs.length} Apple Music track{selectedSongs.length === 1 ? '' : 's'} selected</ThemedText>
+                <ThemedText type="smallBold">{selectedSongs.length} music track{selectedSongs.length === 1 ? '' : 's'} selected</ThemedText>
                 <Pressable accessibilityRole="button" onPress={() => setSelectedSongs([])} style={styles.clearSongs}>
                   <ThemedText type="smallBold">Use manual song instead</ThemedText>
                 </Pressable>

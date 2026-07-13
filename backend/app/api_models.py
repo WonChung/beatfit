@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Generic, TypeVar
+from typing import Annotated, Generic, Literal, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -16,11 +16,22 @@ from app.domain import (
 )
 
 
-class ProviderIdentifier(BaseModel):
-    provider: str
+class AppleMusicProviderIdentifier(BaseModel):
+    provider: Literal["apple_music"]
     catalog_id: str
     library_id: str | None = None
     storefront: str
+
+
+class SpotifyProviderIdentifier(BaseModel):
+    provider: Literal["spotify"]
+    catalog_id: str
+
+
+ProviderIdentifier = Annotated[
+    AppleMusicProviderIdentifier | SpotifyProviderIdentifier,
+    Field(discriminator="provider"),
+]
 
 
 class Song(BaseModel):
@@ -38,7 +49,7 @@ class AppleMusicTrack(BaseModel):
     duration_ms: int | None
     artwork_url: str | None = None
     is_playable: bool = True
-    provider_identifier: ProviderIdentifier
+    provider_identifier: AppleMusicProviderIdentifier
 
 
 class AppleDeveloperToken(BaseModel):

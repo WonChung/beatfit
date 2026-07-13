@@ -46,6 +46,7 @@ function AuthenticatedStack() {
         <Stack.Screen name="saved-workouts" options={{ title: 'Saved Workouts' }} />
         <Stack.Screen name="workout-history" options={{ title: 'Workout History' }} />
         <Stack.Screen name="apple-music" options={{ title: 'Apple Music' }} />
+        <Stack.Screen name="spotify" options={{ title: 'Spotify' }} />
         <Stack.Screen
           name="workout-complete"
           options={{ title: 'Workout Complete', gestureEnabled: false }}
