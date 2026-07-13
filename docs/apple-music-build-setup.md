@@ -2,6 +2,11 @@
 
 No Apple signing material belongs in the mobile or web projects. Complete the
 server and platform configuration below before enabling the feature flags.
+Phase A/B metadata code is present in the backend, web app, and iOS mobile
+adapter. Android has TypeScript and Gradle scaffolding but not a checked-in
+native bridge, so it is not yet usable. Playback remains unimplemented. See the
+[architecture and phased backlog](apple-music-plan.md) for trust boundaries and
+Phase C/D work.
 
 ## Apple Developer portal
 
@@ -13,14 +18,20 @@ server and platform configuration below before enabling the feature flags.
 3. Register the explicit iOS App ID `com.beatfit.mobile` (or replace it with the
    final production identifier in `app.json`), enable the MusicKit App Service,
    and regenerate its provisioning profiles.
-4. Add production and approved development web origins to
-   `APPLE_MUSIC_WEB_ORIGINS`. MusicKit does not use a BeatFit OAuth callback.
 
 ## Backend
 
 Copy the `APPLE_MUSIC_*` values from `backend/.env.example`. Mount the `.p8` as a
 read-only runtime secret and point `APPLE_MUSIC_PRIVATE_KEY_PATH` to it. Apply
 Alembic migration `20260713_0002` to preserve artwork and provider identifiers.
+Set `APPLE_MUSIC_WEB_ORIGINS` to the exact production and approved development
+web origins. MusicKit does not use a BeatFit OAuth callback.
+
+The backend also accepts `APPLE_MUSIC_PRIVATE_KEY_PEM` when a deployment secret
+manager safely injects multiline values; prefer the mounted file shown in the
+example unless that platform has a verified multiline-secret workflow. See the
+[backend guide](../backend/README.md#apple-music-metadata-api) for the
+implemented endpoints.
 
 Only FastAPI signs ES256 developer tokens. The browser and native app receive a
 short-lived signed token, never the private key, Team signing material, or raw
@@ -52,11 +63,15 @@ apps/mobile/modules/beatfit-apple-music/android/libs/
 ```
 
 Apple does not distribute this SDK through npm. Verify its license and the final
-merged manifest. The checked-in bridge implements Apple's Activity-result token
-flow and keeps the Music User Token in native process memory only; reconnect is
-required after process death. It never substitutes a WebView or stores the token
-in AsyncStorage. A future hardening pass may use Keystore-backed encrypted
-storage after the exact token lifecycle for the selected SDK release is verified.
+merged manifest. The repository currently contains only the Android Gradle and
+Expo-module declaration scaffold; the native authorization/library bridge still
+has to be implemented against the approved SDK. That implementation must not
+substitute a WebView or store a Music User Token in AsyncStorage. Token lifecycle
+and Keystore-backed storage must be verified against the selected SDK release.
+
+The licensed AAR is intentionally not tracked in this repository. Android Apple
+Music authorization cannot be built or manually tested until the approved SDK
+artifact is placed in `android/libs/` and the native bridge is implemented.
 
 ```bash
 cd apps/mobile

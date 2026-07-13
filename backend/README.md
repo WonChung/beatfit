@@ -3,6 +3,10 @@
 The BeatFit API uses FastAPI and generates timed workouts from a structured,
 filterable exercise catalog.
 
+For a repository-wide setup, use `make setup`, `make run-backend`, and the
+other verified root commands documented in the [main README](../README.md).
+The commands below are the backend-only equivalents.
+
 ## Local database
 
 Copy the example environment file and keep real credentials out of source
@@ -87,6 +91,11 @@ never include stack traces or raw internal exception messages.
   database-error translation.
 - `app/persistence_routes.py`: persisted workout and session endpoints.
 - `app/auth.py`: Supabase JWT verification and local user-profile synchronization.
+- `app/apple_music.py`: backend-only Apple developer-token signing and public catalog access.
+- `app/apple_music_routes.py`: authenticated Apple developer-token and catalog endpoints.
+- `app/config.py`: runtime environment loading and production validation.
+- `app/observability.py`: structured logging, request IDs, and safe exception handling.
+- `app/operational_routes.py`: liveness and database-readiness endpoints.
 - `migrations/`: Alembic environment and versioned schema changes.
 - `app/models.py` and `app/workout_generator.py`: compatibility exports for
   older imports.
@@ -110,6 +119,26 @@ persistence calls require:
 ```text
 Authorization: Bearer <supabase-access-token>
 ```
+
+## Apple Music metadata API
+
+The implemented Phase A/B Apple Music backend surface is authenticated:
+
+- `GET /music/apple/developer-token`: returns a short-lived developer token;
+  browser requests receive an origin-restricted token when their `Origin` is
+  included in `APPLE_MUSIC_WEB_ORIGINS`.
+- `GET /music/apple/catalog/search?term=...&storefront=us`: proxies public song
+  search and normalizes title, artist, duration, artwork, and provider IDs.
+
+Only FastAPI reads the Media Services `.p8` signing key. Mobile and web clients
+receive a signed developer token but never receive signing credentials or a
+server-stored Music User Token. Migration `20260713_0002` preserves optional
+artwork and provider identifiers in workout snapshots.
+
+See the [Apple Music architecture](../docs/apple-music-plan.md) for trust
+boundaries and remaining playback work, and the
+[Phase A/B build guide](../docs/apple-music-build-setup.md) for Apple Developer,
+native-build, and environment configuration.
 
 ## Generate a workout
 
@@ -230,6 +259,9 @@ the requested level. Muscle-group filtering includes primary and secondary
 muscle-group matches.
 
 ## Tests
+
+From the repository root, `make lint` and `make test` run the backend checks as
+part of the full project suites. To run only the backend checks:
 
 ```bash
 cd backend

@@ -10,8 +10,8 @@ PKCE. Both are public clients: they generate an S256 code challenge and state
 value locally, exchange the returned authorization code with the verifier, and
 never contain a Spotify client secret. Access and refresh tokens remain on the
 client that authorized Spotify. Expo stores them in SecureStore; the web client
-stores them in browser storage. BeatFit's Supabase session is independent of
-the Spotify authorization.
+stores them in per-tab `sessionStorage`. BeatFit's Supabase session is
+independent of the Spotify authorization.
 
 Each client implements the small provider-neutral music service contract and a
 Spotify-specific adapter. The adapter normalizes Spotify records into BeatFit's
@@ -28,6 +28,11 @@ runs.
 
 The integration deliberately does not use playback, Audio Features, Audio
 Analysis, Recommendations, BPM, beat detection, or Spotify editorial content.
+
+Implementation lives under `apps/mobile/src/services/spotify/` and
+`apps/web/src/lib/spotify/`, with provider UI in each application. Repository
+setup and verification commands are in the [main README](../README.md); the
+provider-independent scope overview is in the [documentation index](README.md).
 
 ## Spotify Developer Dashboard setup
 
@@ -81,7 +86,7 @@ them.
 
 The `mobile://` callback must be handled by an installed BeatFit binary, so use
 an Expo development build or a standalone build for end-to-end mobile OAuth.
-Expo Go cannot claim BeatFit's custom scheme reliably. The new Expo packages are
+Expo Go cannot claim BeatFit's custom scheme reliably. The mobile adapter uses
 `expo-crypto` for PKCE and `expo-secure-store` for local token protection.
 
 ## API usage

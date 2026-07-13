@@ -13,6 +13,22 @@ backend/      FastAPI API, SQLAlchemy models, and Alembic migrations
 docs/         Product and provider-integration documentation
 ```
 
+## Current product surface
+
+- Mobile: authenticated workout setup, personalized generation, preview,
+  interval timer, completion summaries, saved workouts, history, preferences,
+  session feedback, provider metadata selection, and bundled exercise
+  silhouettes with an offline fallback.
+- Web: authenticated dashboard, workout setup and generation, preview, timer,
+  completion feedback, preferences, and Apple Music or Spotify metadata
+  selection when enabled.
+- Backend: structured exercise catalog, deterministic rule-based generation and
+  personalization, Supabase JWT verification, PostgreSQL persistence, Apple
+  developer-token support, structured logging, and health/readiness endpoints.
+
+Music-provider playback is not implemented. Apple Music and Spotify are
+metadata and track-selection integrations only.
+
 ## Prerequisites
 
 - Node.js 22 and npm
@@ -167,6 +183,24 @@ only; playback is outside the current scope.
 Detailed backend setup, migrations, rollback/reset instructions, endpoint
 examples, authentication behavior, and personalization rules are documented in
 [backend/README.md](backend/README.md).
+
+Mobile exercise artwork is bundled locally. Display-name aliases resolve to a
+small typed posture-asset registry, and unsupported names use a generic
+placeholder without making a network request. See the
+[exercise visual asset guide](apps/mobile/assets/exercises/README.md) for the
+replacement workflow and current limitations.
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Mobile application](apps/mobile/README.md)
+- [Exercise visual assets](apps/mobile/assets/exercises/README.md)
+- [Web application](apps/web/README.md)
+- [Backend API and database](backend/README.md)
+- [Apple Music architecture](docs/apple-music-plan.md)
+- [Apple Music build configuration](docs/apple-music-build-setup.md)
+- [Spotify metadata integration](docs/spotify-integration.md)
+- [Security policy](.github/SECURITY.md)
 
 ## Security notes
 
