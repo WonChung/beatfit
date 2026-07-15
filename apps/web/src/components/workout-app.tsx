@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ExerciseAnimation } from "@/components/exercise-animation";
 import {
   createWorkoutSession,
   generatePersonalizedWorkout,
@@ -504,6 +505,13 @@ function WorkoutPlayer({ workout, onFinish }: {
   return <div className="section-card player-shell"><div className="player-top"><div><p className="eyebrow">Song {current.blockIndex + 1} of {workout.blocks.length}</p>
     <h2>{current.songTitle}</h2><p>{current.artist}</p></div><span className={`type-pill ${current.interval.type}`}>{readableLabel(current.interval.type)}</span></div>
     <div className="countdown"><p>Current exercise</p><h3>{current.interval.exercise}</h3>
+      <ExerciseAnimation
+        exerciseId={current.interval.exercise_id}
+        exerciseName={current.interval.exercise}
+        size={260}
+        isPaused={state.status !== "running"}
+        intervalType={current.interval.type}
+      />
       <output aria-label={`${remaining} seconds remaining`}>{formatSeconds(remaining)}</output><small>remaining</small></div>
     <div className="progress-label"><span>Workout progress</span><strong>{progress}%</strong></div>
     <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div>

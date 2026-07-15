@@ -1,0 +1,96 @@
+.root {
+  width: min(100%, var(--exercise-animation-size));
+  margin: 22px auto 18px;
+  pointer-events: none;
+  contain: layout paint;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: clamp(16px, 4vw, 24px);
+  background: linear-gradient(145deg, #eef1ff, #f5f4f0);
+}
+
+.pose {
+  position: absolute;
+  inset: 5%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+.startPose {
+  opacity: 1;
+}
+
+.endPose {
+  opacity: 0;
+}
+
+.root[data-has-motion="true"] .startPose {
+  animation: start-pose-cycle var(--exercise-animation-duration) ease-in-out infinite;
+}
+
+.root[data-has-motion="true"] .endPose {
+  animation: end-pose-cycle var(--exercise-animation-duration) ease-in-out infinite;
+}
+
+.root[data-playback-state="paused"] .pose {
+  animation-play-state: paused;
+}
+
+.root[data-playback-state="static"] .pose,
+.root[data-playback-state="reduced-motion"] .pose {
+  animation: none;
+  will-change: auto;
+}
+
+.root[data-playback-state="static"] .startPose,
+.root[data-playback-state="reduced-motion"] .startPose {
+  opacity: 1;
+}
+
+.root[data-playback-state="static"] .endPose,
+.root[data-playback-state="reduced-motion"] .endPose {
+  opacity: 0;
+}
+
+@keyframes start-pose-cycle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes end-pose-cycle {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root .pose {
+    animation: none !important;
+    will-change: auto;
+  }
+
+  .root .startPose {
+    opacity: 1;
+  }
+
+  .root .endPose {
+    opacity: 0;
+  }
+}
