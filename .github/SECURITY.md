@@ -1,5 +1,12 @@
 # Security Policy
 
+## Supported code
+
+BeatFit does not publish versioned production releases from this repository.
+Security fixes target the current `main` branch. Historical commits, forks,
+locally modified builds, and third-party deployments are not maintained by this
+project.
+
 ## Reporting a vulnerability
 
 Do not open a public issue for a suspected vulnerability or include credentials,
@@ -9,8 +16,31 @@ a private vulnerability report or a draft security advisory. A maintainer will
 acknowledge the report, assess impact, and coordinate remediation before public
 disclosure.
 
+Include the affected component and commit, reproduction steps, expected impact,
+and any safe proof-of-concept details. Do not access another person's account,
+music library, tokens, or data while researching a report. This repository does
+not advertise a bug bounty or guaranteed response/remediation timeline.
+
 If a credential may have been exposed, revoke or rotate it immediately. Removing
 it from a later commit does not remove it from Git history.
+
+## Current security boundaries
+
+- FastAPI derives resource ownership from a verified Supabase JWT subject and
+  does not accept client-supplied ownership IDs.
+- Backend request logs omit headers, bodies, query strings, credentials, and raw
+  exception messages. Error responses carry a request ID but no stack trace.
+- Apple private keys remain backend-only. Spotify refresh tokens and Apple Music
+  User Tokens are not sent to FastAPI.
+- Web Spotify tokens use per-tab `sessionStorage`; mobile Spotify tokens use
+  SecureStore and are bound to the BeatFit user.
+- The mobile MVP's workout/history store is unencrypted and not partitioned by
+  BeatFit account. Its current Supabase session adapter also uses AsyncStorage.
+  Do not treat a shared-device installation as account-isolated or the native
+  session store as production-hardened until those limitations are addressed.
+- Production database, TLS, secret-manager, backup, monitoring, and incident
+  response controls belong to the deployment; this repository does not provide
+  deployment automation.
 
 ## Repository security settings
 

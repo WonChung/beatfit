@@ -1,9 +1,13 @@
 # Exercise visual assets
 
-BeatFit bundles exercise visuals locally so preview and workout-player screens
-do not depend on a network request. The current SVGs are generic posture
-silhouettes shared by related exercises. They are placeholders for reviewed,
-exercise-specific artwork, not complete form instruction.
+BeatFit bundles exercise visuals locally so preview rows and workout-player
+next-exercise thumbnails do not depend on a network request. The player's large
+current-exercise view uses the separate
+[animation registry](../exercise-animations/README.md), which falls back to
+these static visuals for registered entries without pose assets. The current
+SVGs are generic posture silhouettes shared by related exercises. They are
+placeholders for reviewed, exercise-specific artwork, not complete form
+instruction.
 
 ## Resolution pipeline
 
@@ -60,9 +64,8 @@ placeholder and shows the exercise name by default. A caller may pass
 control the label with `showLabel`.
 
 Preview rows and the next-exercise thumbnail omit rest intervals. The player's
-current interval still renders through `ExerciseVisual`; the unmapped `Rest`
-name therefore uses the generic fallback while the visible interval text
-continues to identify it as rest.
+current interval renders through `ExerciseAnimation`, where every rest interval
+uses the dedicated breathing pose pair instead of this registry's fallback.
 
 ## Replacing or adding artwork
 
@@ -105,8 +108,8 @@ audit them.
   `Exercise visual for <name>` or `Placeholder exercise visual for <name>`.
 - If an illustration needs a more detailed form description, extend the typed
   metadata/component instead of embedding inaccessible text in the SVG.
-- Avoid animation until reduced-motion behavior and accessible alternatives are
-  defined.
+- Keep motion out of `ExerciseVisual`; add it through the documented animation
+  registry, which already defines pause and reduced-motion behavior.
 
 ## Testing checklist
 

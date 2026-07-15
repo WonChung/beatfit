@@ -1,7 +1,7 @@
 # BeatFit Spotify Metadata Integration
 
 Status: Phase A/B implemented (authorization and metadata only)  
-Last reviewed: 2026-07-12
+Last reviewed against repository code and official Spotify documentation: 2026-07-14
 
 ## Architecture and security
 
@@ -64,7 +64,7 @@ claiming the callback.
 
 ## Environment variables
 
-Mobile (`apps/mobile/.env`, based on `.env.example`):
+Mobile (`apps/mobile/.env.local`, based on `.env.example`):
 
 ```dotenv
 EXPO_PUBLIC_SPOTIFY_ENABLED=true
@@ -123,15 +123,21 @@ or signs out of BeatFit. Neither client logs token values.
 Spotify's February 2026 Development Mode changes materially limit this MVP:
 
 - The application owner must have Spotify Premium.
-- A developer may own only one Development Mode client ID.
-- At most five allowlisted users can use the app.
+- New Development Mode apps are limited to one client ID per developer and five
+  allowlisted users. Spotify's migration guide says existing apps already above
+  those limits are grandfathered, but the limits constrain new IDs/users.
 - Playlist listing can include followed playlists, but playlist items are
   available only when the user owns or collaborates on the playlist. Opening a
   followed playlist can therefore return `403`.
 - New Development Mode apps receive a reduced endpoint and field set. BeatFit
-  must not treat deprecated or unavailable endpoints as fallbacks.
-- Refresh tokens have a fixed six-month lifetime; refresh calls do not extend
-  it, so periodic reconnection is expected.
+  already uses the new `/items` endpoint/field shape and must not treat removed
+  endpoints as fallbacks. Spotify postponed the reduced-endpoint rollout for
+  existing integrations on March 9, 2026; verify an app's dashboard/status
+  rather than assuming its legacy endpoint access.
+- Spotify introduced a fixed six-month refresh-token lifetime on June 18, 2026
+  for new apps and scheduled existing apps for July 20, 2026. Refreshing an
+  access token does not extend that lifetime, so periodic reconnection is the
+  required steady state.
 
 A broad public release is not possible in Development Mode. Spotify's current
 [Extended Quota criteria](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
@@ -162,7 +168,8 @@ approval as an external product risk, not an assumed launch dependency.
 - [February 2026 migration guide](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide)
 - [Quota modes](https://developer.spotify.com/documentation/web-api/concepts/quota-modes)
 - [Get current user's playlists](https://developer.spotify.com/documentation/web-api/reference/get-a-list-of-current-users-playlists)
-- [Get playlist items](https://developer.spotify.com/documentation/web-api/reference/get-playlists-tracks)
+- [Get playlist items](https://developer.spotify.com/documentation/web-api/reference/get-playlists-items)
+- [Refresh-token expiration announcement](https://developer.spotify.com/blog/2026-06-18-refresh-token-expiration)
 - [Design and branding guidelines](https://developer.spotify.com/documentation/design)
 - [Scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes)
 - [Rate limits](https://developer.spotify.com/documentation/web-api/concepts/rate-limits)

@@ -1,8 +1,9 @@
 # BeatFit
 
-BeatFit turns songs and playlists into timed workouts. The repository contains
-an Expo mobile application, a Next.js web application, and a FastAPI API backed
-by PostgreSQL.
+BeatFit turns song metadata into timed, exercise-based workouts. The monorepo
+contains an Expo mobile application, a Next.js web application, and a FastAPI
+API backed by PostgreSQL. Workout generation and personalization are
+deterministic rules; no LLM or external AI service is involved.
 
 ## Repository layout
 
@@ -16,18 +17,46 @@ docs/         Product and provider-integration documentation
 ## Current product surface
 
 - Mobile: authenticated workout setup, personalized generation, preview,
-  interval timer, completion summaries, saved workouts, history, preferences,
-  session feedback, provider metadata selection, and bundled exercise
-  silhouettes with an offline fallback.
+  timestamp-based interval timer, completion summaries, local saved workouts
+  and history, account preferences, best-effort session/feedback sync, provider
+  metadata selection, and bundled exercise visuals and animations.
 - Web: authenticated dashboard, workout setup and generation, preview, timer,
-  completion feedback, preferences, and Apple Music or Spotify metadata
-  selection when enabled.
-- Backend: structured exercise catalog, deterministic rule-based generation and
+  server-backed completion feedback, preferences, exercise demonstrations, and
+  Apple Music or Spotify metadata selection when enabled.
+- Backend: a 70-exercise catalog, deterministic rule-based generation and
   personalization, Supabase JWT verification, PostgreSQL persistence, Apple
-  developer-token support, structured logging, and health/readiness endpoints.
+  developer-token/catalog support, structured logging, and health/readiness
+  endpoints.
 
 Music-provider playback is not implemented. Apple Music and Spotify are
-metadata and track-selection integrations only.
+metadata and track-selection integrations only. Spotify playlist and track UIs
+support incremental pagination. The current Apple Music playlist UIs load only
+the first returned page, and the backend's public Apple catalog-search endpoint
+does not yet have a client UI.
+
+## Architecture and data ownership
+
+```text
+Expo mobile / Next.js web
+        │ Supabase access token + workout/provider metadata
+        ▼
+FastAPI ── verifies user, generates/personalizes, persists
+        │
+        ├── PostgreSQL: users, preferences, workouts, sessions, feedback
+        ├── Apple Music API: public catalog metadata and developer tokens
+        └── Exercise catalog: in-process, versioned with backend code
+```
+
+Supabase owns account sessions. FastAPI derives ownership from the verified JWT
+subject and never trusts a client-provided user ID. Apple Music and Spotify user
+authorization stays in the platform adapter; FastAPI never receives Spotify
+refresh tokens or Music User Tokens.
+
+Mobile additionally keeps generated workouts, named saves, and session history
+in AsyncStorage for offline/local-first use. That MVP store is device-local,
+unencrypted, and not currently partitioned by BeatFit account. Web workout state
+is in-memory for the active page; personalized generation and completed
+sessions are persisted by FastAPI.
 
 ## Prerequisites
 
@@ -45,7 +74,7 @@ Create local environment files from the tracked, non-secret examples:
 
 ```bash
 cp backend/.env.example backend/.env
-cp apps/mobile/.env.example apps/mobile/.env
+cp apps/mobile/.env.example apps/mobile/.env.local
 cp apps/web/.env.example apps/web/.env.local
 ```
 
@@ -90,7 +119,7 @@ Important values include:
 | Backend | `APP_ENV`, `LOG_LEVEL`, `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS` | Production mode validates configuration at startup. Origins are a comma-separated allowlist; do not use `*` in production. |
 | Backend | `DATABASE_URL`, `TEST_DATABASE_URL` | SQLAlchemy PostgreSQL URLs. The test URL must use an isolated database. |
 | Backend | `SUPABASE_URL`, `SUPABASE_JWT_ISSUER`, `SUPABASE_JWT_AUDIENCE`, `SUPABASE_JWKS_URL` | Public JWT-verification configuration; no Supabase service-role key is required. |
-| Backend | `APPLE_MUSIC_*` | Developer-token signing configuration. Apple private keys are backend-only and must stay outside Git. |
+| Backend | `APPLE_MUSIC_*` | Developer-token signing configuration. Use a mounted `.p8` path or a safely injected PEM secret; Apple private keys are backend-only and must stay outside Git. |
 | Mobile | `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_SUPABASE_*`, provider client IDs and feature flags | All `EXPO_PUBLIC_` values are embedded in the client and must be non-secret. A physical device must use the development Mac's LAN IP instead of `127.0.0.1`. |
 | Web | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_*`, provider client IDs and feature flags | All `NEXT_PUBLIC_` values are browser-visible and must be non-secret. |
 
@@ -123,9 +152,8 @@ make run-web      # Next.js at http://localhost:3000
 ```
 
 FastAPI's interactive API documentation is available at
-`http://127.0.0.1:8000/docs`. `GET /health` is the process liveness check and
-`GET /ready` verifies that required dependencies, including the database, are
-available.
+`http://127.0.0.1:8000/docs`. `GET /health` is the dependency-free process
+liveness check and `GET /ready` verifies database connectivity.
 
 The Expo terminal offers simulator and device launch options. When testing on a
 physical phone, update `EXPO_PUBLIC_API_BASE_URL` to a reachable LAN URL such as
@@ -173,29 +201,29 @@ vulnerability reporting, and required branch checks as described in
 
 ## API and data model
 
-The public generator is `POST /workouts/generate`. Authenticated endpoints
-persist generated workouts, sessions, preferences, and feedback; ownership is
-derived from the verified Supabase JWT and never from a client-supplied user ID.
-The exercise catalog and deterministic rule-based personalization live in the
-backend. Apple Music and Spotify currently provide metadata and track selection
-only; playback is outside the current scope.
+The public generator is `POST /workouts/generate`; the clients normally use the
+authenticated `POST /workouts/generate/personalized`, which also persists the
+result. Authenticated endpoints own workouts, sessions, preferences, and
+feedback through the verified Supabase JWT. The public exercise catalog and all
+generation rules live in the backend. See the backend guide for the complete
+endpoint/authentication matrix and persistence invariants.
 
 Detailed backend setup, migrations, rollback/reset instructions, endpoint
 examples, authentication behavior, and personalization rules are documented in
 [backend/README.md](backend/README.md).
 
-Mobile exercise artwork is bundled locally. Display-name aliases resolve to a
-small typed posture-asset registry, and unsupported names use a generic
-placeholder without making a network request. See the
-[exercise visual asset guide](apps/mobile/assets/exercises/README.md) for the
-replacement workflow and current limitations.
+Exercise artwork is bundled locally. Stable backend exercise IDs are preferred,
+name aliases keep older snapshots working, reduced-motion preferences are
+respected, and unsupported exercises use a generic offline demonstration.
 
 ## Documentation
 
 - [Documentation index](docs/README.md)
 - [Mobile application](apps/mobile/README.md)
 - [Exercise visual assets](apps/mobile/assets/exercises/README.md)
+- [Mobile exercise animation assets](apps/mobile/assets/exercise-animations/README.md)
 - [Web application](apps/web/README.md)
+- [Web exercise animation assets](apps/web/public/exercise-animations/README.md)
 - [Backend API and database](backend/README.md)
 - [Apple Music architecture](docs/apple-music-plan.md)
 - [Apple Music build configuration](docs/apple-music-build-setup.md)

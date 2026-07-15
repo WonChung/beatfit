@@ -1,9 +1,10 @@
 # BeatFit Apple Music Integration Plan
 
-Status: Phase A/B implemented for backend, web, and iOS; Android bridge and
-Phase C/D remain design/backlog work
+Status: Phase A/B baseline is partial: backend signing/search plus first-page
+library selection on web and iOS are implemented; client catalog search,
+Apple-library pagination UI, Android, playback, and synchronization remain open
 
-Last reviewed: 2026-07-12
+Last reviewed: 2026-07-14
 
 ## Executive conclusion
 
@@ -20,11 +21,12 @@ The Apple Media Services `.p8` private key must never enter Expo, Next.js
 browser code, a mobile binary, source control, logs, or a client environment
 variable.
 
-Expo Go cannot load either custom native adapter. It can still exercise public
-catalog or playlist metadata returned by FastAPI and the complete
-metadata-to-workout flow with mocked/provider-neutral records. Personalized
-Apple Music library authorization and playback require an Expo development
-build on mobile. The web adapter does not require a native build.
+Expo Go cannot load either custom native adapter. The backend exposes public
+catalog search, but the current mobile application has no catalog-search UI or
+catalog-only adapter wired to that endpoint. Expo Go can exercise the manual
+song flow and mocked provider services in tests. Personalized Apple Music
+library authorization requires an iOS development build; playback is not
+implemented on any platform. The web adapter does not require a native build.
 
 Playlist and song metadata should be delivered before playback. BeatFit's
 existing generator already accepts provider-neutral title, artist, and duration
@@ -42,14 +44,30 @@ generation depend on playback.
 - Web is Next.js 16 App Router with authenticated server/client boundaries.
 - Web has a client-only MusicKit JS adapter, connect/disconnect and playlist
   selection UI, and fetches developer tokens only from authenticated FastAPI.
+  The adapter returns next-page tokens, but the UI currently renders only the
+  first playlist page and first selected-playlist track page.
 - FastAPI verifies the BeatFit user, signs and caches short-lived developer
-  tokens, validates web origins, and proxies normalized public catalog search.
+  tokens by origin, validates browser origins, and proxies one normalized page
+  of public catalog search. It does not yet rate-limit token issuance, cache
+  catalog responses, or expose Apple search pagination.
 - PostgreSQL records are scoped by the verified BeatFit user.
 - Workout input/output and persistence models carry provider-neutral song
   title, artist, duration, artwork, and optional Apple provider identifiers.
 - Phase A/B selection-to-generation is implemented on web and iOS with mocked
-  tests; Android remains incomplete. Playback, queue control, background audio,
-  and player/timer synchronization are not implemented.
+  adapter tests; live Apple acceptance is manual. Android remains incomplete.
+  Playback, queue control, background audio, and player/timer synchronization
+  are not implemented.
+
+## Implementation matrix
+
+| Capability | Backend | iOS development build | Android development build | Web | Expo Go |
+| --- | --- | --- | --- | --- | --- |
+| Developer-token signing | Implemented | Uses MusicKit automatic handling for Swift requests | Client fetch path exists; native consumer missing | Fetches authenticated, origin-restricted token | No consumer UI |
+| Public catalog search | One normalized page, authenticated | No client UI | No client UI | No client UI | No client UI |
+| Library authorization | Not applicable; no Music User Token storage | Implemented with MusicKit for Swift | Not implemented | Implemented with MusicKit JS | Unsupported |
+| Playlist/track browsing | Not proxied | First page only | Not implemented | First page only | Unsupported |
+| Select tracks and generate | API accepts/persists normalized Apple IDs | Implemented | Not implemented | Implemented | Manual/mock flow only |
+| Playback and timer sync | Not implemented | Not implemented | Not implemented | Not implemented | Unsupported |
 
 Manual setup for the implemented baseline is documented in the
 [Phase A/B build guide](apple-music-build-setup.md). Backend setup and endpoint
@@ -89,7 +107,7 @@ store the token encrypted, keyed to the verified BeatFit user, with revocation
 and deletion support. Do not put it in ordinary AsyncStorage or browser-readable
 application state.
 
-## Architecture proposal
+## Target architecture
 
 ```text
                         +--------------------------+
@@ -146,6 +164,11 @@ and expect library IDs to differ from catalog IDs.
 
 ### Backend responsibilities
 
+The first five items describe the target boundary. Current FastAPI implements
+token signing/caching, origin validation, a single-page public song search, and
+normalization. Catalog caching, rate limiting, general resource endpoints, and
+Apple pagination passthrough remain backlog work.
+
 - Generate and cache short-lived Apple developer tokens.
 - Keep the `.p8` key in a production secret manager.
 - Proxy/cache public catalog search and resource metadata.
@@ -166,31 +189,33 @@ and expect library IDs to differ from catalog IDs.
 - Own playback and playback event delivery.
 - Present unsupported/subscription/authorization states distinctly.
 
-## Platform comparison
+## Target platform comparison
 
-This table describes the intended capability of each approved adapter. The
-Android column remains a target architecture until its native bridge and
-licensed SDK dependencies are implemented.
+This table describes the approved end-state, not the current implementation.
+Use the implementation matrix above for shipped behavior. Android requires a
+licensed SDK artifact and a native bridge before any Apple capability below is
+available.
 
-| Capability | Expo Go (native) | iOS development build | Android development build | Next.js web |
-|---|---|---|---|---|
-| FastAPI-proxied public catalog metadata | Yes | Yes | Yes | Yes |
-| Provider-neutral/mock playlist metadata | Yes | Yes | Yes | Yes |
-| User's Apple Music playlists | No official native path | Yes, through MusicKit for Swift | Yes, through Android authentication token and API | Yes, after MusicKit JS authorization |
+| Target capability | Expo Go (native) | iOS development build | Android development build | Next.js web |
+| --- | --- | --- | --- | --- |
+| FastAPI-proxied public catalog metadata | Possible through future client UI | Possible through future client UI | Possible through future client UI | Possible through future client UI |
+| Provider-neutral/mock metadata | Test-only | Yes | Yes after bridge work | Yes |
+| User's Apple Music playlists | No official native path | MusicKit for Swift | Android authentication token and API | MusicKit JS authorization |
 | Apple Music authorization UI | No | Native `MusicAuthorization` | Native Apple authentication SDK | `MusicKit.authorize()` in browser |
 | Full Apple Music playback | No | Native MusicKit player | Android Media Playback SDK | MusicKit on the Web player |
-| Background/lock-screen playback | No | Native audio-session/player work required | Native service/player work required | Browser/platform dependent; not reliable like native |
+| Background/lock-screen playback | No | Native audio-session/player work required | Native service/player work required | Browser/platform dependent |
 | Custom native code | Not loadable | Required | Required | Not applicable |
-| Simulator/emulator confidence | Metadata only; playback is not representative | Test on a signed physical device | Test on a physical device with Apple Music support | Supported browser plus real subscriber account |
+| Acceptance environment | Manual/mock only | Signed physical device | Physical device with Apple Music support | Supported browser plus real subscriber account |
 
 ### Clear Expo Go conclusion
 
 Expo Go contains a fixed native runtime and cannot include a BeatFit MusicKit
 Swift bridge or Apple's Android SDK. Therefore:
 
-- Phase A public catalog metadata can run in Expo Go through FastAPI.
+- FastAPI public catalog metadata is technically reachable from Expo Go, but
+  the current app has no UI or service path that calls it.
 - UI, normalization, selection, pagination, and workout generation can be built
-  and tested in Expo Go using public or mocked metadata.
+  and tested in Expo Go using future public/catalog-only or mocked adapters.
 - Subscriber authorization, personal playlists, Music User Token acquisition,
   subscription checks, and playback cannot be considered supported in Expo Go.
 - Do not use MusicKit JS inside a native WebView as a workaround; it creates a
@@ -342,10 +367,13 @@ sequenceDiagram
     B->>T: Get cached short-lived developer token
     T-->>B: ES256 developer token
     B->>A: Catalog request + Bearer developer token
-    A-->>B: Apple resources + pagination
-    B->>B: Normalize, cache, redact upstream details
-    B-->>C: BeatFit music DTO page
+    A-->>B: Apple search resources
+    B->>B: Normalize first page and redact upstream details
+    B-->>C: BeatFit page=1 music DTOs
 ```
+
+The current route does not pass through Apple's `next` link or cache the search
+response. No checked-in client calls this route today.
 
 ### Personalized playlist authorization and metadata
 
@@ -381,7 +409,7 @@ sequenceDiagram
     participant G as Workout generator
     U->>C: Select playlist tracks
     C->>C: Map title, artist, duration, Apple IDs
-    C->>B: POST /workouts/generate
+    C->>B: POST /workouts/generate/personalized
     Note over C,B: No Apple private key or Music User Token
     B->>G: Provider-neutral songs
     G-->>B: Timed workout blocks
@@ -409,42 +437,45 @@ sequenceDiagram
 
 ### Phase A — authorization and playlist metadata
 
-Implementation status: baseline delivered on iOS and web, with mocked-provider
-coverage. Both require live Apple configuration for manual acceptance. Android
-still needs the licensed Authentication SDK AAR and a native authorization and
-library bridge before it can be tested.
+Implementation status: partial. Web and iOS have authorization, disconnect,
+first-page library browsing, normalization, and mocked adapter coverage. Live
+Apple configuration still requires manual acceptance.
 
-- Register Media ID/key and iOS App ID service.
-- Build the backend developer-token service with rotation-ready key loading.
-- Add authenticated public catalog search/resource endpoints.
-- Define provider-neutral music DTOs, pagination, storefront, explicit-content,
-  subscription, and error states.
-- Build adapter contracts and mock/catalog-only adapter for Expo Go.
-- Build iOS authorization/library metadata bridge.
-- Build Android authentication/token bridge and secure token storage.
-- Load/configure MusicKit JS and authorize on web.
-- List library playlists and paginated tracks without playback.
-- Add connect/disconnect UI and privacy copy.
+- Implemented: single-key backend developer-token loading/signing, short-lived
+  cache, browser-origin validation, and authenticated single-page catalog song
+  search.
+- Implemented: provider-neutral Apple IDs, storefront, duration, artwork,
+  authorization/subscription states, and adapter next-page tokens.
+- Implemented: iOS authorization/library bridge and web MusicKit JS adapter.
+- Implemented: first-page connect/browse/disconnect UI on iOS and web.
+- Open: Media ID/key/App ID portal setup in each environment and live acceptance.
+- Open: key rotation, endpoint rate limiting, catalog response caching, general
+  resource endpoints, and Apple search pagination.
+- Open: playlist/track "load more" UI even though adapters preserve `next`.
+- Open: catalog-only client adapter/UI for Expo Go.
+- Open: licensed Android SDK, native authorization/library bridge, and secure
+  Android Music User Token storage.
+- Open: explicit-content state and broader Apple error/status coverage.
 
-Exit criterion: an authenticated BeatFit user can connect Apple Music on each
-supported real platform, browse playlists/tracks, and disconnect. Expo Go can
-browse public/mock metadata only. The phase-wide criterion remains open for
-Android.
+Exit criterion: remains open until every declared supported platform can browse
+all playlist/track pages and Android support is either delivered or explicitly
+removed from the phase scope.
 
 ### Phase B — selecting songs and generating workouts
 
-Implementation status: baseline delivered for the web and iOS Apple adapters.
-Selected playable tracks are normalized to BeatFit songs with duration,
-artwork, and Apple provider IDs, then passed to existing multi-song generation.
-Android and refreshing stale saved metadata remain future work.
+Implementation status: partial baseline on web and iOS. Selected playable tracks
+are kept in provider order, normalized to BeatFit songs with duration, artwork,
+and Apple IDs, and passed to authenticated multi-song generation.
 
-- Add multi-track selection, ordering, duration totals, and duplicate handling.
-- Preserve Apple catalog/library IDs and storefront in saved workout snapshots.
-- Convert Apple durations to existing millisecond song inputs.
-- Validate unavailable, explicit, missing-duration, and storefront-mismatched
-  tracks.
-- Generate, preview, save, repeat, and restore workouts without playback.
-- Decide how stale metadata is refreshed without invalidating saved workouts.
+- Implemented: multi-track selection, duration conversion, playability and
+  positive-duration filtering, provider-ID persistence, generation, preview,
+  and repeat.
+- Implemented: server workout snapshots preserve artwork, catalog/library IDs,
+  and storefront. Mobile named saves preserve the same response locally.
+- Open: explicit duplicate policy, selection reordering, duration totals,
+  explicit-content and storefront-mismatch validation, and stale-metadata
+  refresh.
+- Open: Android selection flow and a web saved-workout/history browser.
 
 Exit criterion: Apple playlist selections produce deterministic BeatFit workout
 blocks while the current manual-song flow remains available.
@@ -483,6 +514,12 @@ events within documented tolerances.
 
 ## Security risks and controls
 
+This is the required control set for the target architecture. Current FastAPI
+implements short token TTLs, origin claims, server-only key loading, safe error
+translation, and metadata-only request logging. Rate limiting, multi-key
+rotation, catalog caching policy, and a verified production MusicKit CSP are not
+implemented in this repository.
+
 | Risk | Control |
 |---|---|
 | `.p8` private key exposure | Store only in a backend secret manager; restrict service-account access; never copy into repo, image layer, mobile build, Next public env, CI logs, or crash reports. |
@@ -500,6 +537,12 @@ downloaded once, backed up in an approved secrets system, and removed from local
 Downloads after secure import. Apple cannot provide the same file again.
 
 ## Testing strategy
+
+The lists below are the target test plan. Checked-in automated coverage currently
+verifies backend token claims/origin rejection and basic catalog normalization,
+plus mocked web/mobile adapter behavior and provider-to-workout types. It does
+not cover live Apple accounts, native physical devices, key rotation, rate
+limiting, Apple pagination UI, playback, or end-to-end MusicKit authorization.
 
 ### Unit tests
 
@@ -561,6 +604,10 @@ Use a generated test EC key; never use the real Apple `.p8` in tests.
 - Not every catalog item is playable in every storefront, and library IDs are
   not interchangeable with catalog IDs.
 - Expo Go cannot load the native MusicKit adapters.
+- No current client exposes FastAPI public catalog search, so Expo Go has no
+  Apple browsing flow despite the backend endpoint.
+- Web and iOS library UIs render only the first playlist page and first selected
+  playlist track page.
 - iOS simulator and Android emulator behavior is not sufficient evidence for
   subscription authorization or playback; physical-device coverage is required.
 - Web playback is subject to browser autoplay, popup, cookie, media-session,

@@ -1,10 +1,14 @@
 # Apple Music Phase A/B build setup
 
+Last verified against the repository: 2026-07-14
+
 No Apple signing material belongs in the mobile or web projects. Complete the
 server and platform configuration below before enabling the feature flags.
-Phase A/B metadata code is present in the backend, web app, and iOS mobile
-adapter. Android has TypeScript and Gradle scaffolding but not a checked-in
-native bridge, so it is not yet usable. Playback remains unimplemented. See the
+The Phase A/B baseline is present in the backend, web app, and iOS mobile
+adapter. Current library UIs load only the first playlist and track pages, and
+neither client exposes backend public catalog search. Android has TypeScript and
+Gradle scaffolding but not a checked-in native bridge, so it is not usable.
+Playback remains unimplemented. See the
 [architecture and phased backlog](apple-music-plan.md) for trust boundaries and
 Phase C/D work.
 
@@ -23,25 +27,31 @@ Phase C/D work.
 
 Copy the `APPLE_MUSIC_*` values from `backend/.env.example`. Mount the `.p8` as a
 read-only runtime secret and point `APPLE_MUSIC_PRIVATE_KEY_PATH` to it. Apply
-Alembic migration `20260713_0002` to preserve artwork and provider identifiers.
-Set `APPLE_MUSIC_WEB_ORIGINS` to the exact production and approved development
-web origins. MusicKit does not use a BeatFit OAuth callback.
+all migrations with `alembic upgrade head`; migration `20260713_0002` is the
+revision that added artwork and provider identifiers. Set
+`APPLE_MUSIC_WEB_ORIGINS` to the exact production and approved development web
+origins, without trailing slashes. MusicKit does not use a BeatFit OAuth
+callback.
 
-The backend also accepts `APPLE_MUSIC_PRIVATE_KEY_PEM` when a deployment secret
-manager safely injects multiline values; prefer the mounted file shown in the
-example unless that platform has a verified multiline-secret workflow. See the
-[backend guide](../backend/README.md#apple-music-metadata-api) for the
+The backend also accepts the commented `APPLE_MUSIC_PRIVATE_KEY_PEM` alternative
+when a deployment secret manager safely injects multiline values; prefer the
+mounted file unless that platform has a verified multiline-secret workflow.
+See the [backend guide](../backend/README.md#apple-music-metadata-api) for the
 implemented endpoints.
 
-Only FastAPI signs ES256 developer tokens. The browser and native app receive a
-short-lived signed token, never the private key, Team signing material, or raw
-Music User Token.
+Only FastAPI signs tokens with the repository-configured Media Services key.
+The browser receives a short-lived origin-restricted token, and the future
+Android adapter has a backend token-fetch path. MusicKit for Swift handles iOS
+developer-token management automatically. No client receives the private key,
+Team signing material, or raw Music User Token from FastAPI.
 
 ## iOS development build
 
-The local Expo module uses MusicKit for authorization, subscription checks,
-library playlists, tracks, durations, and artwork. `app.json` supplies the
-bundle ID and `NSAppleMusicUsageDescription`.
+The local Expo module targets iOS 16 or newer and uses MusicKit for
+authorization, subscription checks, library playlists, tracks, durations,
+artwork, and storefront lookup. `app.json` supplies the bundle ID and
+`NSAppleMusicUsageDescription`. The screen currently does not expose the
+adapter's next-page token.
 
 ```bash
 cd apps/mobile
@@ -84,20 +94,24 @@ npx expo run:android --device
 Set `NEXT_PUBLIC_APPLE_MUSIC_ENABLED=true`. MusicKit JS loads only in the
 browser, requests a short-lived origin-restricted token from FastAPI, and lets
 Apple manage subscriber authorization. Test on the production HTTPS origin as
-well as the approved local origin.
+well as the approved local origin. The current browser also renders only the
+first playlist and track pages.
 
 ## Manual acceptance
 
 1. Sign in to BeatFit.
 2. Connect Apple Music and handle denial/cancellation and non-subscriber states.
-3. Confirm an empty library and empty playlist render useful messages.
-4. Open a playlist, verify artwork/title/artist/duration, and ensure unavailable
-   or durationless tracks cannot be selected.
+3. Confirm an empty first page and empty playlist render useful messages.
+4. Open a playlist, verify first-page artwork/title/artist/duration, and ensure
+   unavailable or durationless tracks cannot be selected.
 5. Select multiple tracks and generate a workout; confirm one workout block per
    selected track and that artwork/provider identifiers survive the response.
 6. Disconnect and verify personalized library UI is cleared.
 7. Confirm no `.p8`, developer signing credential, or Music User Token appears
    in browser bundles, mobile bundles, logs, URLs, or API request bodies.
+
+Live acceptance does not complete the remaining Phase A pagination/catalog-UI
+work. Track those separately from environment readiness.
 
 Playback, queue control, background audio, lock-screen controls, and timer/player
 synchronization remain Phase C/D work and are not part of this build.
