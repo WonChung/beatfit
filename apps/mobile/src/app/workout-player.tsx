@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ExerciseAnimation } from '@/components/exercise-animation';
 import { ExerciseVisual } from '@/components/exercise-visual';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -25,6 +26,7 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function WorkoutPlayerScreen() {
   const router = useRouter();
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const { session: authSession } = useAuth();
   const { recordSession } = usePersistenceStore();
   const { workout, saveSession } = useWorkoutStore();
@@ -104,6 +106,11 @@ export default function WorkoutPlayerScreen() {
   const remainingSeconds = Math.ceil(timer.remainingMs / 1000);
   const elapsedSeconds = Math.floor(timer.elapsedMs / 1000);
   const progressPercent = Math.round(timer.progress * 100);
+  const animationSize = Math.min(
+    220,
+    Math.max(40, viewportWidth - Spacing.four * 2),
+    Math.max(120, viewportHeight * 0.28)
+  );
 
   return (
     <ThemedView style={styles.screen}>
@@ -132,10 +139,12 @@ export default function WorkoutPlayerScreen() {
               {timer.current.interval.exercise}
             </ThemedText>
             <View style={styles.currentExerciseVisual}>
-              <ExerciseVisual
+              <ExerciseAnimation
+                exerciseId={timer.current.interval.exercise_id}
                 exerciseName={timer.current.interval.exercise}
-                size={180}
-                showLabel={false}
+                intervalType={timer.current.interval.type}
+                size={animationSize}
+                isPaused={timer.status !== 'running'}
               />
             </View>
             <ThemedText
