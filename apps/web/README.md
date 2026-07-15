@@ -1,6 +1,9 @@
 # BeatFit Web
 
-BeatFit Web is the browser client for building music-length workouts, previewing the generated intervals, running a basic workout timer, and recording a completion with optional difficulty feedback. It is a Next.js 16 App Router application using React 19, TypeScript, Supabase authentication, and a FastAPI backend.
+BeatFit Web is the browser client for building music-length workouts,
+previewing generated intervals, running a timestamp-based workout timer, and
+recording completion with optional difficulty feedback. The checked-in app uses
+Next.js 16.2, React 19, TypeScript, Supabase authentication, and FastAPI.
 
 ## What is implemented
 
@@ -13,6 +16,7 @@ BeatFit Web is the browser client for building music-length workouts, previewing
 - Account preferences for default difficulty, available equipment, preferred goal, avoided/favorite exercises, high-impact movements, and work/rest balance.
 - Explainable personalization details in the generated-workout preview.
 - Optional Apple Music and Spotify metadata import for selecting playlist tracks.
+- ID-first exercise demonstrations with reduced-motion and off-screen pause behavior.
 - Route-level and global error boundaries with safe user-facing fallback messages.
 
 ## Architecture
@@ -37,6 +41,7 @@ src/
 │   ├── api.ts                           # Central typed FastAPI client
 │   ├── timer.ts                         # Pure timer transitions and calculations
 │   ├── completion.ts                    # Session/completion calculations
+│   ├── exercise-animation.ts            # ID/name registry and playback policy
 │   ├── supabase/                        # Browser/server Supabase clients and session refresh
 │   ├── apple-music/                     # MusicKit JS adapter and test doubles
 │   ├── spotify/                         # Spotify PKCE adapter and test doubles
@@ -51,8 +56,7 @@ Workout generation, preferences, sessions, feedback, exercise data, and Apple Mu
 
 ## Prerequisites
 
-- Node.js 20.9 or newer (required by the installed Next.js version)
-- npm
+- Node.js 22 and npm (repository CI); the installed Next.js version requires at least Node 20.9
 - A running BeatFit backend with its database migrated
 - A configured Supabase project for account flows
 
@@ -129,6 +133,8 @@ Both integrations are metadata-first. Selected tracks are converted to BeatFit s
 - Uses MusicKit JS for user authorization and library playlist browsing.
 - Obtains a short-lived developer token from the authenticated backend; signing keys stay server-side.
 - Requires Apple Developer identifiers/keys and an active Apple Music subscription for library access.
+- Currently renders the first 25 playlists and first 25 tracks from the selected playlist; adapter next-page tokens are not yet surfaced by the UI.
+- Does not currently consume the backend's public Apple catalog-search endpoint.
 - Controlled by `NEXT_PUBLIC_APPLE_MUSIC_ENABLED`.
 
 ### Spotify
@@ -139,6 +145,20 @@ Both integrations are metadata-first. Selected tracks are converted to BeatFit s
 - Controlled by `NEXT_PUBLIC_SPOTIFY_ENABLED`.
 
 Neither integration plays music. Spotify audio features, audio analysis, recommendations, BPM, beat detection, and beat-drop detection are also intentionally out of scope.
+
+## Exercise demonstrations
+
+The active workout interval renders `ExerciseAnimation`. Resolution prefers the
+stable backend `exercise_id`, falls back to normalized names for older
+snapshots, uses dedicated push-up, squat, and mountain-climber pose pairs,
+shows a breathing cycle for rest, and uses a generic cycle for unknown
+exercises. Static posture assets cover several additional registry entries.
+
+CSS pauses motion when the timer is paused. The component also stops motion
+while it is outside the viewport or the page is hidden and shows a static start
+pose for `prefers-reduced-motion`. See the
+[asset guide](public/exercise-animations/README.md) before changing the registry
+or files.
 
 ## Testing
 
@@ -156,6 +176,7 @@ npm run build
 ## Current limitations
 
 - There is no Apple Music or Spotify playback and no synchronization between a provider player and the workout timer.
+- Apple Music library browsing currently stops after the first playlist and track page, and there is no public catalog-search UI.
 - The web timer relies on an open browser tab; browser throttling, sleeping devices, or closing the page can interrupt a workout.
 - Spotify tokens use per-tab browser session storage rather than durable server-side provider-token storage.
 - Provider availability depends on external subscriptions, permissions, development-mode restrictions, and dashboard configuration.
