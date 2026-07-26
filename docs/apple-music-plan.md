@@ -4,11 +4,11 @@ Status: Phase A/B baseline is partial: backend signing/search plus first-page
 library selection on web and iOS are implemented; client catalog search,
 Apple-library pagination UI, Android, playback, and synchronization remain open
 
-Last reviewed: 2026-07-14
+Last reviewed: 2026-07-26
 
 ## Executive conclusion
 
-BeatFit should use one provider-neutral TypeScript contract with three real
+BeatFit should use one provider-neutral TypeScript contract with three target
 platform adapters:
 
 1. iOS: a custom Expo native module backed by MusicKit for Swift.
@@ -21,12 +21,17 @@ The Apple Media Services `.p8` private key must never enter Expo, Next.js
 browser code, a mobile binary, source control, logs, or a client environment
 variable.
 
-Expo Go cannot load either custom native adapter. The backend exposes public
-catalog search, but the current mobile application has no catalog-search UI or
-catalog-only adapter wired to that endpoint. Expo Go can exercise the manual
-song flow and mocked provider services in tests. Personalized Apple Music
-library authorization requires an iOS development build; playback is not
-implemented on any platform. The web adapter does not require a native build.
+Expo Go cannot load custom native adapters, including the current iOS bridge or
+a future Android bridge. The backend exposes public catalog search, but the
+current mobile application has no catalog-search UI or catalog-only adapter
+wired to that endpoint.
+
+Expo Go can exercise the manual song flow. Mocked provider services cover
+provider behavior in automated tests.
+
+Personalized Apple Music library authorization requires an iOS development
+build; playback is not implemented on any platform. The web adapter does not
+require a native build.
 
 Playlist and song metadata should be delivered before playback. BeatFit's
 existing generator already accepts provider-neutral title, artist, and duration
@@ -38,9 +43,10 @@ generation depend on playback.
 - Mobile is Expo SDK 57 with Expo Router, stable `com.beatfit.mobile` iOS and
   Android identifiers, `NSAppleMusicUsageDescription`, a provider service, and
   a working local Expo MusicKit module on iOS. Expo Go cannot load that native
-  module. Android currently has TypeScript, Expo-module declaration, and Gradle
-  scaffolding only; its native bridge is not checked in and also requires
-  Apple's licensed Authentication SDK AAR.
+  module. The shared TypeScript adapter includes an Android developer-token fetch
+  path, but the Expo module is registered for Apple platforms only. No Android
+  Gradle project, licensed SDK AAR, or native authorization/library bridge is
+  checked in.
 - Web is Next.js 16 App Router with authenticated server/client boundaries.
 - Web has a client-only MusicKit JS adapter, connect/disconnect and playlist
   selection UI, and fetches developer tokens only from authenticated FastAPI.
@@ -199,7 +205,7 @@ available.
 | Target capability | Expo Go (native) | iOS development build | Android development build | Next.js web |
 | --- | --- | --- | --- | --- |
 | FastAPI-proxied public catalog metadata | Possible through future client UI | Possible through future client UI | Possible through future client UI | Possible through future client UI |
-| Provider-neutral/mock metadata | Test-only | Yes | Yes after bridge work | Yes |
+| Provider-neutral/mock metadata | Manual/mock flow | Yes | Yes after bridge work | Yes |
 | User's Apple Music playlists | No official native path | MusicKit for Swift | Android authentication token and API | MusicKit JS authorization |
 | Apple Music authorization UI | No | Native `MusicAuthorization` | Native Apple authentication SDK | `MusicKit.authorize()` in browser |
 | Full Apple Music playback | No | Native MusicKit player | Android Media Playback SDK | MusicKit on the Web player |
@@ -477,8 +483,10 @@ and Apple IDs, and passed to authenticated multi-song generation.
   refresh.
 - Open: Android selection flow and a web saved-workout/history browser.
 
-Exit criterion: Apple playlist selections produce deterministic BeatFit workout
-blocks while the current manual-song flow remains available.
+Exit criterion: Apple playlist selections produce correctly duration-matched
+BeatFit workout blocks, with exercise selection reproducible when the same
+`random_seed`, inputs, and personalization state are supplied, while the
+current manual-song flow remains available.
 
 ### Phase C — playback
 
@@ -575,8 +583,8 @@ Use a generated test EC key; never use the real Apple `.p8` in tests.
   service lifecycle.
 - Build-time tests for config plugin idempotence, purpose string, app IDs,
   provisioning capability, linked frameworks/AARs, and merged manifest.
-- Expo Go explicitly reports metadata-only capability rather than crashing or
-  showing unusable authorization controls.
+- Expo Go explicitly reports native Apple Music authorization as unsupported
+  rather than crashing or showing unusable authorization controls.
 
 ### Web tests
 

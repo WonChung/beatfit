@@ -1,13 +1,18 @@
 # Apple Music Phase A/B build setup
 
-Last verified against the repository: 2026-07-14
+Last verified against the repository: 2026-07-26
 
 No Apple signing material belongs in the mobile or web projects. Complete the
 server and platform configuration below before enabling the feature flags.
+
 The Phase A/B baseline is present in the backend, web app, and iOS mobile
 adapter. Current library UIs load only the first playlist and track pages, and
-neither client exposes backend public catalog search. Android has TypeScript and
-Gradle scaffolding but not a checked-in native bridge, so it is not usable.
+neither client exposes backend public catalog search.
+
+The shared TypeScript adapter includes an Android developer-token fetch path,
+but there is no checked-in Android Gradle project, SDK AAR, or native bridge, so
+Android Apple Music is not usable.
+
 Playback remains unimplemented. See the
 [architecture and phased backlog](apple-music-plan.md) for trust boundaries and
 Phase C/D work.
@@ -40,10 +45,11 @@ See the [backend guide](../backend/README.md#apple-music-metadata-api) for the
 implemented endpoints.
 
 Only FastAPI signs tokens with the repository-configured Media Services key.
-The browser receives a short-lived origin-restricted token, and the future
-Android adapter has a backend token-fetch path. MusicKit for Swift handles iOS
-developer-token management automatically. No client receives the private key,
-Team signing material, or raw Music User Token from FastAPI.
+The browser receives a short-lived origin-restricted token. The shared mobile
+adapter includes an Android-only backend developer-token fetch path intended for
+a future Android native bridge. MusicKit for Swift handles iOS developer-token
+management automatically. No client receives the private key, Team signing
+material, or raw Music User Token from FastAPI.
 
 ## iOS development build
 
@@ -65,23 +71,32 @@ service. Expo Go cannot load this module.
 
 ## Android development build
 
-Download the current official MusicKit Authentication SDK from Apple Developer
-and place its approved AAR dependencies under:
+Once an Android scaffold has been added, download the current official MusicKit
+Authentication SDK from Apple Developer and place its approved AAR dependencies
+under:
 
 ```text
 apps/mobile/modules/beatfit-apple-music/android/libs/
 ```
 
 Apple does not distribute this SDK through npm. Verify its license and the final
-merged manifest. The repository currently contains only the Android Gradle and
-Expo-module declaration scaffold; the native authorization/library bridge still
-has to be implemented against the approved SDK. That implementation must not
-substitute a WebView or store a Music User Token in AsyncStorage. Token lifecycle
-and Keystore-backed storage must be verified against the selected SDK release.
+merged manifest.
 
-The licensed AAR is intentionally not tracked in this repository. Android Apple
-Music authorization cannot be built or manually tested until the approved SDK
-artifact is placed in `android/libs/` and the native bridge is implemented.
+The repository does not currently contain an Android Gradle project or native
+bridge, and the Expo module remains registered for Apple platforms only. An
+Android scaffold must first be created, registered with the Expo module, and
+implemented against the approved SDK.
+
+That implementation must not substitute a WebView or store a Music User Token
+in AsyncStorage. Token lifecycle and Keystore-backed storage must be verified
+against the selected SDK release.
+
+Any licensed AAR must remain untracked. Android Apple Music authorization cannot
+be built or manually tested until the approved SDK artifact is placed in
+`android/libs/`, Android Expo-module registration is added, and the native bridge
+is implemented.
+
+After those prerequisites are complete:
 
 ```bash
 cd apps/mobile
