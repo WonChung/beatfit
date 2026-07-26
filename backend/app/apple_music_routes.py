@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 
 from app.api_models import AppleDeveloperToken, AppleMusicProviderIdentifier, AppleMusicTrack, Page
 from app.apple_music import (
@@ -19,10 +19,13 @@ router = APIRouter(prefix="/music/apple", tags=["Apple Music"])
 
 @router.get("/developer-token", response_model=AppleDeveloperToken)
 def developer_token(
+    response: Response,
     origin: str | None = Header(default=None),
     _user: User = Depends(get_current_user),
     service: DeveloperTokenService = Depends(get_developer_token_service),
 ) -> AppleDeveloperToken:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
     try:
         token, expires_at = service.issue(origin)
         return AppleDeveloperToken(token=token, expires_at=expires_at)

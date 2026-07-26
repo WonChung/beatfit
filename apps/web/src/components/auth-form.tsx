@@ -3,6 +3,7 @@
 import { type FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { SupabasePublicConfigurationError } from '@/lib/supabase/config';
 
 export default function AuthForm() {
   const router = useRouter();
@@ -23,28 +24,37 @@ export default function AuthForm() {
       return;
     }
     setLoading(true);
-    const supabase = createClient();
-    const result = mode === 'sign-in'
-      ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
-      : await supabase.auth.signUp({ email: email.trim(), password });
-    setLoading(false);
-    if (result.error) {
-      setError(result.error.message.toLowerCase().includes('invalid login credentials')
-        ? 'Incorrect email or password.' : result.error.message);
-      return;
-    }
-    if (result.data.session) {
-      router.replace('/dashboard');
-      router.refresh();
-    } else {
-      setMessage('Check your email to confirm your account.');
+    try {
+      const supabase = createClient();
+      const result = mode === 'sign-in'
+        ? await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        : await supabase.auth.signUp({ email: email.trim(), password });
+      if (result.error) {
+        setError(result.error.message.toLowerCase().includes('invalid login credentials')
+          ? 'Incorrect email or password.' : result.error.message);
+        return;
+      }
+      if (result.data.session) {
+        router.replace('/dashboard');
+        router.refresh();
+      } else {
+        setMessage('Check your email to confirm your account.');
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof SupabasePublicConfigurationError
+          ? 'Authentication is not configured for this environment.'
+          : 'Authentication is temporarily unavailable. Please try again.',
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
     <main className="auth-shell">
       <section className="auth-card" aria-labelledby="auth-title">
-        <p className="eyebrow">Music-powered movement</p>
+        <p className="eyebrow">Song-duration workouts</p>
         <h1 id="auth-title">BeatFit</h1>
         <p>{mode === 'sign-in' ? 'Sign in to build your next workout.' : 'Create an account to get moving.'}</p>
         <form onSubmit={submit} className="auth-form">

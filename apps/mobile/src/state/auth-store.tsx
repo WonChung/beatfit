@@ -1,6 +1,16 @@
 import type { Session, User } from '@supabase/supabase-js';
-import { createContext, type PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  type PropsWithChildren,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { appleMusicService } from '@/services/apple-music';
+import { spotifyMusicService } from '@/services/spotify';
 import { isSupabaseConfigured, supabase } from '@/services/supabase';
 
 interface AuthState {
@@ -23,22 +33,58 @@ interface AuthContextValue extends AuthState {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+interface DisconnectableMusicProvider {
+  disconnect(): Promise<void>;
+}
+
+type AuthSignOut = () => Promise<{ error: { message: string } | null }>;
+
+const MUSIC_PROVIDERS: readonly DisconnectableMusicProvider[] = [
+  appleMusicService,
+  spotifyMusicService,
+];
+const MUSIC_PROVIDER_DISCONNECT_TIMEOUT_MS = 2_000;
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<AuthState>(() =>
     isSupabaseConfigured ? initialAuthState : restoredAuthState(null)
   );
+  const currentUserId = useRef<string | null>(null);
+  const explicitlyDisconnectedUserId = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured) {
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setState(restoredAuthState(data.session));
-    });
+    const restoration = new AuthSessionRestoration();
+    const applySession = (session: Session | null) => {
+      if (!active) return;
+      const nextUserId = session?.user.id ?? null;
+      if (shouldDisconnectMusicProviders(currentUserId.current, nextUserId)) {
+        if (explicitlyDisconnectedUserId.current === currentUserId.current) {
+          explicitlyDisconnectedUserId.current = null;
+        } else {
+          void disconnectMusicProviders();
+        }
+      }
+      currentUserId.current = nextUserId;
+      setState(restoredAuthState(session));
+    };
+
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setState(restoredAuthState(session));
+      restoration.recordAuthEvent();
+      applySession(session);
     });
+    void supabase.auth
+      .getSession()
+      .then(({ data: sessionData }) => {
+        if (restoration.shouldApplyRestoredSession()) applySession(sessionData.session);
+      })
+      .catch(() => {
+        if (restoration.shouldApplyRestoredSession()) applySession(null);
+      });
+
     return () => {
       active = false;
       data.subscription.unsubscribe();
@@ -61,8 +107,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return data.session === null;
       },
       signOut: async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw new Error(error.message);
+        const departingUserId = currentUserId.current;
+        explicitlyDisconnectedUserId.current = departingUserId;
+        try {
+          await signOutSession(() => supabase.auth.signOut(), MUSIC_PROVIDERS);
+          if (currentUserId.current === departingUserId) {
+            currentUserId.current = null;
+            explicitlyDisconnectedUserId.current = null;
+            setState(restoredAuthState(null));
+          }
+        } catch (error) {
+          explicitlyDisconnectedUserId.current = null;
+          throw error;
+        }
       },
     }),
     [state]
@@ -88,4 +145,61 @@ export function toFriendlyAuthError(message: string): string {
   if (normalized.includes('invalid login credentials')) return 'Incorrect email or password.';
   if (normalized.includes('email not confirmed')) return 'Confirm your email before signing in.';
   return message;
+}
+
+export class AuthSessionRestoration {
+  private receivedAuthEvent = false;
+
+  recordAuthEvent() {
+    this.receivedAuthEvent = true;
+  }
+
+  shouldApplyRestoredSession(): boolean {
+    return !this.receivedAuthEvent;
+  }
+}
+
+export function shouldDisconnectMusicProviders(
+  previousUserId: string | null,
+  nextUserId: string | null
+): boolean {
+  return previousUserId !== null && previousUserId !== nextUserId;
+}
+
+export async function disconnectMusicProviders(
+  providers: readonly DisconnectableMusicProvider[] = MUSIC_PROVIDERS,
+  timeoutMs = MUSIC_PROVIDER_DISCONNECT_TIMEOUT_MS
+): Promise<void> {
+  await Promise.all(
+    providers.map((provider) =>
+      settleProviderDisconnect(() => provider.disconnect(), timeoutMs)
+    )
+  );
+}
+
+export async function signOutSession(
+  signOut: AuthSignOut,
+  providers: readonly DisconnectableMusicProvider[] = MUSIC_PROVIDERS,
+  disconnectTimeoutMs = MUSIC_PROVIDER_DISCONNECT_TIMEOUT_MS
+): Promise<void> {
+  await disconnectMusicProviders(providers, disconnectTimeoutMs);
+  const { error } = await signOut();
+  if (error) throw new Error(error.message);
+}
+
+function settleProviderDisconnect(
+  disconnect: () => Promise<void>,
+  timeoutMs: number
+): Promise<void> {
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timeout);
+      resolve();
+    };
+    const timeout = setTimeout(finish, Math.max(0, timeoutMs));
+    void Promise.resolve().then(disconnect).then(finish, finish);
+  });
 }

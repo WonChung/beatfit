@@ -34,13 +34,16 @@ it from a later commit does not remove it from Git history.
   User Tokens are not sent to FastAPI.
 - Web Spotify tokens use per-tab `sessionStorage`; mobile Spotify tokens use
   SecureStore and are bound to the BeatFit user.
-- The mobile MVP's workout/history store is unencrypted and not partitioned by
-  BeatFit account. Its current Supabase session adapter also uses AsyncStorage.
-  Do not treat a shared-device installation as account-isolated or the native
-  session store as production-hardened until those limitations are addressed.
+- Web and mobile Apple Music adapters maintain a logical BeatFit owner binding
+  and invalidate inherited provider authorization on account changes.
+- Native Supabase sessions and music-provider credentials use SecureStore.
+  Locally persisted workout data remains unencrypted, but each store is keyed by
+  the verified Supabase user ID; unowned data from the former global key is
+  quarantined rather than exposed to a signed-in account.
 - Production database, TLS, secret-manager, backup, monitoring, and incident
   response controls belong to the deployment; this repository does not provide
-  deployment automation.
+  deployment automation. A public deployment must also enforce rate and abuse
+  controls at its ingress or API gateway.
 
 ## Repository security settings
 
@@ -54,8 +57,13 @@ Repository administrators should enable and monitor:
 Secret scanning and push protection are repository settings, not substitutes
 for a CI workflow; they must be enabled explicitly in GitHub. The checked-in
 [dependency review workflow](workflows/dependency-review.yml) evaluates pull
-request dependency changes, and [Dependabot configuration](dependabot.yml)
-checks backend, mobile, web, and GitHub Actions dependencies.
+request dependency changes when the repository is public. Its API is not
+available to an ordinary private personal repository, so that job skips until
+the repository is public. An eligible private repository can opt in after its
+administrator enables the required GitHub security product and deliberately
+updates the workflow guard.
+[Dependabot configuration](dependabot.yml) checks backend, mobile, web, and
+GitHub Actions dependencies.
 
 CI intentionally receives no application secrets. Tests and builds must use
 documented placeholders, mocks, or isolated test credentials. Supabase

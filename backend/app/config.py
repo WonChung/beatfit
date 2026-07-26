@@ -16,6 +16,10 @@ LOCAL_CORS_ORIGINS = (
 )
 VALID_ENVIRONMENTS = {"development", "test", "production"}
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+SUPABASE_PLACEHOLDER_MARKERS = (
+    "configuration-required",
+    "your-project-ref",
+)
 
 
 class ConfigurationError(RuntimeError):
@@ -32,6 +36,14 @@ class RuntimeSettings:
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+
+@dataclass(frozen=True)
+class SupabaseAuthConfiguration:
+    url: str
+    issuer: str
+    audience: str
+    jwks_url: str
 
 
 @lru_cache
@@ -99,12 +111,42 @@ def validate_runtime_settings(settings: RuntimeSettings) -> None:
             "DATABASE_URL cannot use the documented development credentials in production."
         )
 
-    supabase_url = os.getenv("SUPABASE_URL", "").strip()
-    supabase_issuer = os.getenv("SUPABASE_JWT_ISSUER", "").strip()
-    if not _is_https_url(supabase_url) or "your-project-ref" in supabase_url:
-        raise ConfigurationError("SUPABASE_URL must be an HTTPS URL in production.")
-    if not _is_https_url(supabase_issuer) or "your-project-ref" in supabase_issuer:
-        raise ConfigurationError("SUPABASE_JWT_ISSUER must be an HTTPS URL in production.")
+    load_supabase_auth_configuration()
+
+
+def load_supabase_auth_configuration() -> SupabaseAuthConfiguration:
+    """Parse the public Supabase settings used to verify access tokens."""
+
+    supabase_url = _validated_supabase_https_url(
+        os.getenv("SUPABASE_URL", ""),
+        variable_name="SUPABASE_URL",
+        require_origin=True,
+    )
+
+    configured_issuer = os.getenv("SUPABASE_JWT_ISSUER")
+    issuer = _validated_supabase_https_url(
+        configured_issuer if configured_issuer is not None else f"{supabase_url}/auth/v1",
+        variable_name="SUPABASE_JWT_ISSUER",
+    )
+
+    configured_jwks_url = os.getenv("SUPABASE_JWKS_URL")
+    jwks_url = _validated_supabase_https_url(
+        configured_jwks_url
+        if configured_jwks_url is not None
+        else f"{issuer}/.well-known/jwks.json",
+        variable_name="SUPABASE_JWKS_URL",
+    )
+
+    audience = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated").strip()
+    if not audience:
+        raise ConfigurationError("SUPABASE_JWT_AUDIENCE must not be empty.")
+
+    return SupabaseAuthConfiguration(
+        url=supabase_url,
+        issuer=issuer,
+        audience=audience,
+        jwks_url=jwks_url,
+    )
 
 
 def _parse_origins(raw_origins: str) -> tuple[str, ...]:
@@ -148,9 +190,43 @@ def _validate_origin(origin: str, *, require_https: bool) -> None:
         )
 
 
-def _is_https_url(value: str) -> bool:
-    parsed = urlsplit(value)
-    return parsed.scheme == "https" and bool(parsed.hostname)
+def _validated_supabase_https_url(
+    raw_value: str,
+    *,
+    variable_name: str,
+    require_origin: bool = False,
+) -> str:
+    value = raw_value.strip().rstrip("/")
+    try:
+        parsed = urlsplit(value)
+        hostname = parsed.hostname
+        _ = parsed.port
+    except ValueError as error:
+        raise ConfigurationError(
+            f"{variable_name} must be a valid HTTPS URL without credentials, query, or fragment."
+        ) from error
+
+    has_placeholder = any(marker in value.casefold() for marker in SUPABASE_PLACEHOLDER_MARKERS)
+    has_query_or_fragment_delimiter = "?" in value or "#" in value
+    invalid_path = require_origin and parsed.path not in {"", "/"}
+    if (
+        parsed.scheme != "https"
+        or not hostname
+        or any(character.isspace() for character in value)
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or has_query_or_fragment_delimiter
+        or invalid_path
+        or has_placeholder
+    ):
+        requirement = "HTTPS origin" if require_origin else "HTTPS URL"
+        raise ConfigurationError(
+            f"{variable_name} must be a non-placeholder {requirement} "
+            "without credentials, query, or fragment."
+        )
+    return value
 
 
 def log_level_number(settings: RuntimeSettings) -> int:

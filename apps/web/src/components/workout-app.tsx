@@ -236,10 +236,11 @@ export default function WorkoutApp({ importedSongs = [] }: { importedSongs?: Gen
         </nav>
         <div className="hero-grid">
           <div>
-            <p className="eyebrow">Music-powered movement</p>
-            <h1>Every song becomes<br /><span>a workout set.</span></h1>
+            <p className="eyebrow">Song-duration workouts</p>
+            <h1>Turn track durations into<br /><span>interval workouts.</span></h1>
             <p className="hero-copy">
-              Pick your focus, choose a track, and BeatFit builds a timed routine that moves with it.
+              Pick your focus and track metadata. BeatFit deterministically fits
+              interval blocks to the selected duration.
             </p>
             <a className="hero-cta" href="#workout-builder">Create your workout <span>→</span></a>
           </div>

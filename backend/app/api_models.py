@@ -16,17 +16,47 @@ from app.domain import (
     WorkRestPreference,
 )
 
+MAX_SONG_COUNT = 50
+MAX_EQUIPMENT_COUNT = 3
+MAX_SONG_DURATION_MS = 60 * 60 * 1_000
+MAX_WORKOUT_DURATION_MS = 4 * 60 * 60 * 1_000
+MAX_SONG_TITLE_LENGTH = 240
+MAX_SONG_ARTIST_LENGTH = 240
+MAX_ARTWORK_URL_LENGTH = 2_048
+MAX_PROVIDER_ID_LENGTH = 256
+MAX_STOREFRONT_LENGTH = 16
+MAX_INTERVAL_TYPE_LENGTH = 32
+MAX_EXERCISE_NAME_LENGTH = 240
+MAX_EXERCISE_ID_LENGTH = 180
+MAX_PREFERENCE_EXERCISE_ID_COUNT = 100
+MIN_RANDOM_SEED = -(2**31)
+MAX_RANDOM_SEED = 2**31 - 1
+MAX_BLOCK_DURATION_SECONDS = max(1, round(MAX_SONG_DURATION_MS / 1_000))
+MAX_PERSISTED_WORKOUT_DURATION_SECONDS = (MAX_WORKOUT_DURATION_MS // 1_000) + MAX_SONG_COUNT
+MAX_INTERVALS_PER_BLOCK = 1_024
+MAX_WORKOUT_INTERVAL_COUNT = 4_096
+MAX_SESSION_ELAPSED_SECONDS = MAX_RANDOM_SEED
+
+ExerciseId = Annotated[
+    str,
+    Field(min_length=1, max_length=MAX_EXERCISE_ID_LENGTH),
+]
+
 
 class AppleMusicProviderIdentifier(BaseModel):
     provider: Literal["apple_music"]
-    catalog_id: str
-    library_id: str | None = None
-    storefront: str
+    catalog_id: str = Field(min_length=1, max_length=MAX_PROVIDER_ID_LENGTH)
+    library_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_PROVIDER_ID_LENGTH,
+    )
+    storefront: str = Field(min_length=1, max_length=MAX_STOREFRONT_LENGTH)
 
 
 class SpotifyProviderIdentifier(BaseModel):
     provider: Literal["spotify"]
-    catalog_id: str
+    catalog_id: str = Field(min_length=1, max_length=MAX_PROVIDER_ID_LENGTH)
 
 
 ProviderIdentifier = Annotated[
@@ -36,10 +66,10 @@ ProviderIdentifier = Annotated[
 
 
 class Song(BaseModel):
-    title: str = Field(min_length=1)
-    artist: str = Field(min_length=1)
-    duration_ms: int = Field(gt=0)
-    artwork_url: str | None = None
+    title: str = Field(min_length=1, max_length=MAX_SONG_TITLE_LENGTH)
+    artist: str = Field(min_length=1, max_length=MAX_SONG_ARTIST_LENGTH)
+    duration_ms: int = Field(ge=1, le=MAX_SONG_DURATION_MS)
+    artwork_url: str | None = Field(default=None, max_length=MAX_ARTWORK_URL_LENGTH)
     provider_identifier: ProviderIdentifier | None = None
 
 
@@ -61,24 +91,53 @@ class AppleDeveloperToken(BaseModel):
 class GenerateWorkoutRequest(BaseModel):
     muscle_group: MuscleGroup
     difficulty: Difficulty
-    equipment: list[Equipment] = Field(min_length=1)
-    songs: list[Song] = Field(min_length=1)
+    equipment: list[Equipment] = Field(
+        min_length=1,
+        max_length=MAX_EQUIPMENT_COUNT,
+    )
+    songs: list[Song] = Field(min_length=1, max_length=MAX_SONG_COUNT)
     goal: WorkoutGoal = WorkoutGoal.endurance
-    random_seed: int | None = None
+    random_seed: int | None = Field(
+        default=None,
+        ge=MIN_RANDOM_SEED,
+        le=MAX_RANDOM_SEED,
+    )
+
+    @model_validator(mode="after")
+    def validate_total_duration(self) -> "GenerateWorkoutRequest":
+        total_duration_ms = sum(song.duration_ms for song in self.songs)
+        if total_duration_ms > MAX_WORKOUT_DURATION_MS:
+            raise ValueError(
+                f"Combined song duration must not exceed {MAX_WORKOUT_DURATION_MS} ms."
+            )
+        return self
 
 
 class WorkoutInterval(BaseModel):
-    start_seconds: int
-    end_seconds: int
-    type: str
-    exercise: str
-    exercise_id: str | None = None
+    start_seconds: int = Field(ge=0, le=MAX_BLOCK_DURATION_SECONDS)
+    end_seconds: int = Field(ge=1, le=MAX_BLOCK_DURATION_SECONDS)
+    type: str = Field(min_length=1, max_length=MAX_INTERVAL_TYPE_LENGTH)
+    exercise: str = Field(min_length=1, max_length=MAX_EXERCISE_NAME_LENGTH)
+    exercise_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_EXERCISE_ID_LENGTH,
+    )
+
+    @model_validator(mode="after")
+    def validate_positive_duration(self) -> "WorkoutInterval":
+        if self.end_seconds <= self.start_seconds:
+            raise ValueError("end_seconds must be greater than start_seconds")
+        return self
 
 
 class WorkoutBlock(BaseModel):
     song: Song
-    duration_seconds: int
-    intervals: list[WorkoutInterval]
+    duration_seconds: int = Field(ge=1, le=MAX_BLOCK_DURATION_SECONDS)
+    intervals: list[WorkoutInterval] = Field(
+        min_length=1,
+        max_length=MAX_INTERVALS_PER_BLOCK,
+    )
 
 
 class PersonalizationExplanation(BaseModel):
@@ -120,10 +179,20 @@ class UserPreferencesUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     default_difficulty: Difficulty | None = None
-    available_equipment: list[Equipment] | None = Field(default=None, min_length=1)
+    available_equipment: list[Equipment] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_EQUIPMENT_COUNT,
+    )
     preferred_goal: WorkoutGoal | None = None
-    avoided_exercise_ids: list[str] | None = None
-    favorite_exercise_ids: list[str] | None = None
+    avoided_exercise_ids: list[ExerciseId] | None = Field(
+        default=None,
+        max_length=MAX_PREFERENCE_EXERCISE_ID_COUNT,
+    )
+    favorite_exercise_ids: list[ExerciseId] | None = Field(
+        default=None,
+        max_length=MAX_PREFERENCE_EXERCISE_ID_COUNT,
+    )
     high_impact_allowed: bool | None = None
     work_rest_preference: WorkRestPreference | None = None
 
@@ -151,12 +220,38 @@ class WorkoutCreate(BaseModel):
     name: str | None = Field(default=None, max_length=160)
     muscle_group: MuscleGroup
     difficulty: Difficulty
-    equipment: list[Equipment] = Field(min_length=1)
+    equipment: list[Equipment] = Field(
+        min_length=1,
+        max_length=MAX_EQUIPMENT_COUNT,
+    )
     goal: WorkoutGoal = WorkoutGoal.endurance
-    random_seed: int | None = None
-    blocks: list[WorkoutBlock] = Field(min_length=1)
+    random_seed: int | None = Field(
+        default=None,
+        ge=MIN_RANDOM_SEED,
+        le=MAX_RANDOM_SEED,
+    )
+    blocks: list[WorkoutBlock] = Field(min_length=1, max_length=MAX_SONG_COUNT)
     saved_name: str | None = Field(default=None, min_length=1, max_length=160)
     is_favorite: bool = False
+
+    @model_validator(mode="after")
+    def validate_aggregate_bounds(self) -> "WorkoutCreate":
+        total_song_duration_ms = sum(block.song.duration_ms for block in self.blocks)
+        if total_song_duration_ms > MAX_WORKOUT_DURATION_MS:
+            raise ValueError(
+                f"Combined block song duration must not exceed {MAX_WORKOUT_DURATION_MS} ms."
+            )
+
+        total_block_duration_seconds = sum(block.duration_seconds for block in self.blocks)
+        if total_block_duration_seconds > MAX_PERSISTED_WORKOUT_DURATION_SECONDS:
+            raise ValueError("Combined block duration exceeds the supported workout duration.")
+
+        total_intervals = sum(len(block.intervals) for block in self.blocks)
+        if total_intervals > MAX_WORKOUT_INTERVAL_COUNT:
+            raise ValueError(
+                f"Workout must not contain more than {MAX_WORKOUT_INTERVAL_COUNT} intervals."
+            )
+        return self
 
 
 class PersistedWorkout(BaseModel):
@@ -191,10 +286,10 @@ class WorkoutSessionCreate(BaseModel):
     workout_id: UUID
     started_at: datetime
     ended_at: datetime
-    actual_elapsed_seconds: int = Field(ge=0)
-    completed_intervals: int = Field(ge=0)
-    completed_work_intervals: int = Field(ge=0)
-    completed_song_blocks: int = Field(ge=0)
+    actual_elapsed_seconds: int = Field(ge=0, le=MAX_SESSION_ELAPSED_SECONDS)
+    completed_intervals: int = Field(ge=0, le=MAX_WORKOUT_INTERVAL_COUNT)
+    completed_work_intervals: int = Field(ge=0, le=MAX_WORKOUT_INTERVAL_COUNT)
+    completed_song_blocks: int = Field(ge=0, le=MAX_SONG_COUNT)
     status: SessionStatus
     feedback: FeedbackWrite | None = None
 
@@ -209,10 +304,26 @@ class WorkoutSessionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ended_at: datetime | None = None
-    actual_elapsed_seconds: int | None = Field(default=None, ge=0)
-    completed_intervals: int | None = Field(default=None, ge=0)
-    completed_work_intervals: int | None = Field(default=None, ge=0)
-    completed_song_blocks: int | None = Field(default=None, ge=0)
+    actual_elapsed_seconds: int | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_SESSION_ELAPSED_SECONDS,
+    )
+    completed_intervals: int | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_WORKOUT_INTERVAL_COUNT,
+    )
+    completed_work_intervals: int | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_WORKOUT_INTERVAL_COUNT,
+    )
+    completed_song_blocks: int | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_SONG_COUNT,
+    )
     status: SessionStatus | None = None
     feedback: FeedbackWrite | None = None
 

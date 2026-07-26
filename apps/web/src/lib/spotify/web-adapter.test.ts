@@ -55,6 +55,24 @@ describe('Spotify Web API metadata normalization', () => {
     )).resolves.toBe('cancelled');
   });
 
+  it('does not store a token when the BeatFit user changes during the exchange', async () => {
+    window.sessionStorage.setItem('beatfit.spotify.oauth_state', 'expected-state');
+    window.sessionStorage.setItem('beatfit.spotify.pkce_verifier', 'verifier');
+    window.sessionStorage.setItem('beatfit.spotify.pkce_owner', BEATFIT_USER_ID);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({
+      access_token: 'access',
+      refresh_token: 'refresh',
+      expires_in: 3600,
+      scope: 'playlist-read-private playlist-read-collaborative',
+    })));
+
+    await expect(new WebSpotifyMusicService(BEATFIT_USER_ID).completeAuthorization(
+      new URLSearchParams('code=authorization-code&state=expected-state'),
+      async () => false,
+    )).rejects.toMatchObject({ code: 'invalid_state' });
+    expect(window.sessionStorage.getItem('beatfit.spotify.token')).toBeNull();
+  });
+
   it('rejects stored authorization that is missing a playlist scope', async () => {
     window.sessionStorage.setItem('beatfit.spotify.token', JSON.stringify({
       accessToken: 'access', refreshToken: 'refresh', expiresAt: Date.now() + 60_000, scopes: ['playlist-read-private'], beatFitUserId: BEATFIT_USER_ID,

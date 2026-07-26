@@ -3,10 +3,11 @@ import { describe, expect, it } from '@jest/globals';
 import type { GenerateWorkoutRequest, GenerateWorkoutResponse, WorkoutSession } from '@/types/workout';
 
 import {
-  BeatFitRepository,
+  createBeatFitRepository,
   DuplicateWorkoutNameError,
-  STORAGE_KEY,
+  LEGACY_STORAGE_KEY,
   migrateStorage,
+  storageKeyForUser,
   type KeyValueStorage,
 } from './beatfit-repository';
 
@@ -56,9 +57,12 @@ const session: WorkoutSession = {
   status: 'completed',
 };
 
+const USER_A_ID = '11111111-1111-4111-8111-111111111111';
+const USER_B_ID = '22222222-2222-4222-8222-222222222222';
+
 describe('BeatFitRepository', () => {
   it('saves and reads generated and named workouts', async () => {
-    const repository = new BeatFitRepository(new MemoryStorage());
+    const repository = createBeatFitRepository(USER_A_ID, new MemoryStorage());
     await repository.addGeneratedWorkout(request, workout);
     const saved = await repository.saveWorkout('Core Session', request, workout);
     const database = await repository.read();
@@ -69,7 +73,7 @@ describe('BeatFitRepository', () => {
   });
 
   it('renames workouts and rejects duplicate names case-insensitively', async () => {
-    const repository = new BeatFitRepository(new MemoryStorage());
+    const repository = createBeatFitRepository(USER_A_ID, new MemoryStorage());
     const first = await repository.saveWorkout('Core Session', request, workout);
     await repository.saveWorkout('Morning Core', request, workout);
     const renamed = await repository.renameWorkout(first.id, 'Evening Core');
@@ -81,21 +85,21 @@ describe('BeatFitRepository', () => {
   });
 
   it('deletes a saved workout', async () => {
-    const repository = new BeatFitRepository(new MemoryStorage());
+    const repository = createBeatFitRepository(USER_A_ID, new MemoryStorage());
     const saved = await repository.saveWorkout('Delete Me', request, workout);
     await repository.deleteWorkout(saved.id);
     expect((await repository.read()).savedWorkouts).toEqual([]);
   });
 
   it('favorites and unfavorites a workout', async () => {
-    const repository = new BeatFitRepository(new MemoryStorage());
+    const repository = createBeatFitRepository(USER_A_ID, new MemoryStorage());
     const saved = await repository.saveWorkout('Favorite', request, workout);
     expect((await repository.toggleFavorite(saved.id)).isFavorite).toBe(true);
     expect((await repository.toggleFavorite(saved.id)).isFavorite).toBe(false);
   });
 
   it('stores history entries and persists feedback updates', async () => {
-    const repository = new BeatFitRepository(new MemoryStorage());
+    const repository = createBeatFitRepository(USER_A_ID, new MemoryStorage());
     await repository.saveSession(session);
     await repository.updateSessionFeedback(session.id, 'about_right');
     const history = (await repository.read()).sessions;
@@ -106,8 +110,9 @@ describe('BeatFitRepository', () => {
 
   it('recovers from malformed JSON and drops partially corrupt records', async () => {
     const storage = new MemoryStorage();
-    storage.values.set(STORAGE_KEY, '{not-json');
-    const repository = new BeatFitRepository(storage);
+    const storageKey = storageKeyForUser(USER_A_ID);
+    storage.values.set(storageKey, '{not-json');
+    const repository = createBeatFitRepository(USER_A_ID, storage);
     expect(await repository.read()).toEqual({
       version: 1,
       generatedWorkouts: [],
@@ -116,7 +121,7 @@ describe('BeatFitRepository', () => {
     });
 
     storage.values.set(
-      STORAGE_KEY,
+      storageKey,
       JSON.stringify({ version: 1, generatedWorkouts: [{ id: 'broken' }], savedWorkouts: [], sessions: [session, { id: 'bad' }] })
     );
     expect((await repository.read()).sessions).toEqual([session]);
@@ -133,5 +138,75 @@ describe('BeatFitRepository', () => {
     expect(migrated.version).toBe(1);
     expect(migrated.generatedWorkouts).toEqual([]);
     expect(migrated.sessions).toEqual([session]);
+  });
+
+  it('derives deterministic, collision-resistant keys from user IDs', () => {
+    expect(storageKeyForUser(' user/a ')).toBe(`${LEGACY_STORAGE_KEY}/user/user%2Fa`);
+    expect(storageKeyForUser('user/a')).toBe(storageKeyForUser(' user/a '));
+    expect(storageKeyForUser('user/a')).not.toBe(storageKeyForUser('user%2Fa'));
+    expect(() => storageKeyForUser('   ')).toThrow('user ID is required');
+  });
+
+  it('isolates account A and account B in the same storage adapter', async () => {
+    const storage = new MemoryStorage();
+    const accountA = createBeatFitRepository(USER_A_ID, storage);
+    const accountB = createBeatFitRepository(USER_B_ID, storage);
+
+    await accountA.saveWorkout('Account A workout', request, workout);
+    await accountB.saveWorkout('Account B workout', request, workout);
+
+    expect((await accountA.read()).savedWorkouts.map((item) => item.name)).toEqual([
+      'Account A workout',
+    ]);
+    expect((await accountB.read()).savedWorkouts.map((item) => item.name)).toEqual([
+      'Account B workout',
+    ]);
+    expect(storage.values.has(storageKeyForUser(USER_A_ID))).toBe(true);
+    expect(storage.values.has(storageKeyForUser(USER_B_ID))).toBe(true);
+  });
+
+  it('preserves serialized updates within a user-scoped repository', async () => {
+    const repository = createBeatFitRepository(USER_A_ID, new MemoryStorage());
+
+    await Promise.all([
+      repository.saveWorkout('First concurrent workout', request, workout),
+      repository.saveWorkout('Second concurrent workout', request, workout),
+    ]);
+
+    expect(
+      (await repository.read()).savedWorkouts.map((item) => item.name).sort()
+    ).toEqual(['First concurrent workout', 'Second concurrent workout']);
+  });
+
+  it('restores the same account after logout and repository recreation', async () => {
+    const storage = new MemoryStorage();
+    const beforeLogout = createBeatFitRepository(USER_A_ID, storage);
+    const saved = await beforeLogout.saveWorkout('Restored workout', request, workout);
+    await beforeLogout.saveSession(session);
+
+    const afterLogin = createBeatFitRepository(USER_A_ID, storage);
+    const restored = await afterLogin.read();
+
+    expect(restored.savedWorkouts).toEqual([saved]);
+    expect(restored.sessions).toEqual([session]);
+  });
+
+  it('never exposes data from the unowned legacy storage key', async () => {
+    const storage = new MemoryStorage();
+    const legacyValue = JSON.stringify({
+      version: 1,
+      generatedWorkouts: [],
+      savedWorkouts: [],
+      sessions: [session],
+    });
+    storage.values.set(LEGACY_STORAGE_KEY, legacyValue);
+
+    const repository = createBeatFitRepository(USER_A_ID, storage);
+    expect((await repository.read()).sessions).toEqual([]);
+
+    await repository.saveSession({ ...session, id: 'owned-session' });
+
+    expect((await repository.read()).sessions.map((item) => item.id)).toEqual(['owned-session']);
+    expect(storage.values.get(LEGACY_STORAGE_KEY)).toBe(legacyValue);
   });
 });

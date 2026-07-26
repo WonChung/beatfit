@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 import {
-  beatFitRepository,
+  createBeatFitRepository,
   type BeatFitRepository,
 } from '@/storage/beatfit-repository';
 import type { BeatFitStorageSchema, SavedWorkout } from '@/types/persistence';
@@ -52,15 +52,20 @@ const PersistenceContext = createContext<PersistenceContextValue | null>(null);
 
 export function PersistenceProvider({
   children,
-  repository = beatFitRepository,
-}: PropsWithChildren<{ repository?: BeatFitRepository }>) {
+  userId,
+  repository,
+}: PropsWithChildren<{ userId: string; repository?: BeatFitRepository }>) {
+  const activeRepository = useMemo(
+    () => repository ?? createBeatFitRepository(userId),
+    [repository, userId]
+  );
   const [database, setDatabase] = useState<BeatFitStorageSchema>(EMPTY_DATABASE);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      setDatabase(await repository.read());
+      setDatabase(await activeRepository.read());
       setError(null);
     } catch (caughtError) {
       setError(toErrorMessage(caughtError));
@@ -68,11 +73,11 @@ export function PersistenceProvider({
     } finally {
       setIsLoading(false);
     }
-  }, [repository]);
+  }, [activeRepository]);
 
   useEffect(() => {
     let isActive = true;
-    repository
+    activeRepository
       .read()
       .then((storedDatabase) => {
         if (isActive) {
@@ -89,13 +94,13 @@ export function PersistenceProvider({
     return () => {
       isActive = false;
     };
-  }, [repository]);
+  }, [activeRepository]);
 
   const runMutation = useCallback(
     async <T,>(operation: () => Promise<T>): Promise<T> => {
       try {
         const result = await operation();
-        setDatabase(await repository.read());
+        setDatabase(await activeRepository.read());
         setError(null);
         return result;
       } catch (caughtError) {
@@ -103,7 +108,7 @@ export function PersistenceProvider({
         throw caughtError;
       }
     },
-    [repository]
+    [activeRepository]
   );
 
   const value = useMemo<PersistenceContextValue>(
@@ -113,28 +118,28 @@ export function PersistenceProvider({
       error,
       refresh,
       recordGeneratedWorkout: async (request, workout) => {
-        await runMutation(() => repository.addGeneratedWorkout(request, workout));
+        await runMutation(() => activeRepository.addGeneratedWorkout(request, workout));
       },
       saveNamedWorkout: (name, request, workout) =>
-        runMutation(() => repository.saveWorkout(name, request, workout)),
+        runMutation(() => activeRepository.saveWorkout(name, request, workout)),
       renameSavedWorkout: async (id, name) => {
-        await runMutation(() => repository.renameWorkout(id, name));
+        await runMutation(() => activeRepository.renameWorkout(id, name));
       },
       toggleSavedWorkoutFavorite: async (id) => {
-        await runMutation(() => repository.toggleFavorite(id));
+        await runMutation(() => activeRepository.toggleFavorite(id));
       },
       deleteSavedWorkout: async (id) => {
-        await runMutation(() => repository.deleteWorkout(id));
+        await runMutation(() => activeRepository.deleteWorkout(id));
       },
       recordSession: async (session) => {
-        await runMutation(() => repository.saveSession(session));
+        await runMutation(() => activeRepository.saveSession(session));
       },
       persistSessionFeedback: async (id, feedback) => {
-        await runMutation(() => repository.updateSessionFeedback(id, feedback));
+        await runMutation(() => activeRepository.updateSessionFeedback(id, feedback));
       },
       clearError: () => setError(null),
     }),
-    [database, error, isLoading, refresh, repository, runMutation]
+    [activeRepository, database, error, isLoading, refresh, runMutation]
   );
 
   return <PersistenceContext.Provider value={value}>{children}</PersistenceContext.Provider>;

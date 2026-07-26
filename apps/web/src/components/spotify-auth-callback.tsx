@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { WebSpotifyMusicService } from '@/lib/spotify/web-adapter';
+import { createClient } from '@/lib/supabase/client';
 
 let callbackAttempt: {
-  beatFitUserId: string;
+  key: string;
   promise: ReturnType<WebSpotifyMusicService['completeAuthorization']>;
 } | undefined;
 
@@ -16,10 +17,19 @@ export default function SpotifyAuthCallback({ beatFitUserId }: { beatFitUserId: 
   useEffect(() => {
     let active = true;
     const service = new WebSpotifyMusicService(beatFitUserId);
-    if (!callbackAttempt || callbackAttempt.beatFitUserId !== beatFitUserId) {
+    const search = new URLSearchParams(window.location.search);
+    const attemptKey = [
+      beatFitUserId,
+      search.get('state') ?? 'missing-state',
+      search.get('error') ?? 'authorization-code',
+    ].join(':');
+    if (!callbackAttempt || callbackAttempt.key !== attemptKey) {
       callbackAttempt = {
-        beatFitUserId,
-        promise: service.completeAuthorization(new URLSearchParams(window.location.search)),
+        key: attemptKey,
+        promise: service.completeAuthorization(search, async () => {
+          const { data } = await createClient().auth.getClaims();
+          return String(data?.claims?.sub ?? '') === beatFitUserId;
+        }),
       };
     }
     void callbackAttempt.promise

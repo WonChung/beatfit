@@ -334,12 +334,17 @@ def _owned_session(database: Session, user: User, session_id: uuid.UUID) -> Work
 
 def _validate_blocks(blocks: list[WorkoutBlockSchema]) -> None:
     for block in blocks:
+        expected_duration_seconds = max(1, round(block.song.duration_ms / 1_000))
+        if block.duration_seconds != expected_duration_seconds:
+            raise PersistenceValidationError("Block duration must match the rounded song duration.")
         if not block.intervals:
             raise PersistenceValidationError("Workout blocks must contain at least one interval.")
         if block.intervals[0].start_seconds != 0:
             raise PersistenceValidationError("The first interval must start at zero.")
         if block.intervals[-1].end_seconds != block.duration_seconds:
             raise PersistenceValidationError("The final interval must end at the block duration.")
+        if any(interval.end_seconds <= interval.start_seconds for interval in block.intervals):
+            raise PersistenceValidationError("Workout intervals must have positive durations.")
         for previous, current in zip(block.intervals, block.intervals[1:], strict=False):
             if previous.end_seconds != current.start_seconds:
                 raise PersistenceValidationError("Workout intervals must be contiguous.")

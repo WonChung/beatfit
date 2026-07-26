@@ -74,7 +74,8 @@ Production startup rejects:
 
 - missing, wildcard, non-HTTPS, or malformed CORS origins;
 - a missing, non-PostgreSQL, loopback, or example-credential database URL;
-- missing, placeholder, or non-HTTPS Supabase URL and issuer values.
+- missing, placeholder, malformed, credential-bearing, or non-HTTPS Supabase
+  URL, issuer, and JWKS values, plus an empty JWT audience.
 
 Apple Music settings are loaded only when an Apple endpoint is used. A core API
 deployment may leave them unconfigured if the provider feature is disabled in
@@ -93,7 +94,8 @@ issued-at time, subject, and the `authenticated` role, then synchronizes a local
 `users` record. The token subject is the local user ID. Request bodies never
 accept an ownership ID.
 
-Every response includes `X-Request-ID`. A client value is retained only when it
+Every response includes `X-Request-ID`, `X-Content-Type-Options: nosniff`, and
+`Referrer-Policy: no-referrer`. A client request ID is retained only when it
 contains 1–128 letters, numbers, dots, underscores, or hyphens; otherwise the
 API generates a UUID. Error bodies also contain `request_id`:
 
@@ -110,8 +112,13 @@ contain method, path, status, duration, request ID, and exception type where
 applicable; headers, bodies, query strings, credentials, and raw exception
 messages are not logged.
 
-Paginated database lists accept `page` (default `1`) and `page_size` (default
-`20`, maximum `100`) and return `items`, `page`, `page_size`, and `total`.
+Request bodies are limited to 1 MiB before JSON model parsing. The pure ASGI
+middleware enforces the same limit for requests with `Content-Length` and
+streamed/chunked bodies and returns `413` when the limit is exceeded.
+
+Paginated database lists accept `page` (default `1`, maximum `1,000`) and
+`page_size` (default `20`, maximum `100`) and return `items`, `page`,
+`page_size`, and `total`.
 
 ## Endpoint reference
 
@@ -179,6 +186,11 @@ makes exercise selection deterministic for the same request and personalization
 inputs. Provider identifiers are discriminated objects: Spotify stores a
 catalog ID; Apple Music stores a catalog ID, optional library ID, and
 storefront.
+
+Generation accepts at most 50 songs and three equipment values. Each song is
+limited to one hour, combined song duration is limited to four hours, and
+random seeds use the signed 32-bit range. Titles, artists, artwork URLs, and
+provider identifiers also have explicit length bounds.
 
 Each song becomes one workout block. Durations are rounded to seconds and never
 fall below one second. Songs of at most 20 seconds become one work interval.
@@ -257,9 +269,13 @@ entry with `saved_name` and `is_favorite`. Saved names are unique per user. The
 current clients use personalized generation for server persistence; mobile's
 named saved-workout library is a separate local-first store.
 
-Persisted blocks must contain intervals, start at zero, remain contiguous, and
-end at the block duration. Session creation derives planned duration, total
-intervals, and the immutable workout snapshot on the server. It rejects:
+Persisted workouts use the same song/block duration bounds as generation, allow
+at most 1,024 intervals per block and 4,096 intervals total, and reject a block
+whose rounded song duration differs from its declared duration. Blocks must
+contain positive-duration intervals, start at zero, remain contiguous, and end
+at the block duration. Preference exercise-ID lists contain at most 100 bounded
+IDs each. Session creation derives planned duration, total intervals, and the
+immutable workout snapshot on the server. It rejects:
 
 - an end time before the start time;
 - completed intervals above the workout total;
@@ -294,7 +310,8 @@ and caches them by requested origin until 30 seconds before expiration.
 Browser requests with an `Origin` header receive a token only when that exact
 origin appears in `APPLE_MUSIC_WEB_ORIGINS`; the token carries Apple's `origin`
 claim. Requests without `Origin`, including native and server catalog use,
-receive an unrestricted-by-origin developer token.
+receive an unrestricted-by-origin developer token. Developer-token responses
+include `Cache-Control: no-store` and `Pragma: no-cache`.
 
 `GET /music/apple/catalog/search` accepts:
 
@@ -337,6 +354,7 @@ remain outside the implemented backend surface. See the
 | `app/apple_music.py` | Apple configuration, token signing, and catalog HTTP client. |
 | `app/apple_music_routes.py` | Authenticated Apple endpoints and response normalization. |
 | `app/observability.py` | JSON logging, request IDs, and safe exception handlers. |
+| `app/request_limits.py` | Fixed request-body limit for declared and streamed bodies. |
 | `app/operational_routes.py` | Liveness and database readiness. |
 | `migrations/` | Alembic environment and versioned schema changes. |
 | `app/models.py`, `app/workout_generator.py` | Compatibility exports for older imports. |
@@ -346,6 +364,8 @@ remain outside the implemented backend surface. See the
 From `backend/`:
 
 ```bash
+APP_ENV=test .venv/bin/pip check
+APP_ENV=test .venv/bin/pip-audit -r requirements.txt
 APP_ENV=test .venv/bin/pytest -q
 .venv/bin/ruff check app tests migrations
 .venv/bin/ruff format --check app tests migrations

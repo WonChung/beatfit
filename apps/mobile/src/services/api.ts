@@ -7,14 +7,11 @@ import type {
   WorkoutFeedback,
   WorkoutSession,
 } from '@/types/workout';
+import { resolveApiBaseUrl } from '@/services/api-config';
 
 // This fallback works for web and iOS Simulator local development. A physical
 // device must use the development Mac's LAN IP in EXPO_PUBLIC_API_BASE_URL.
-const LOCAL_API_BASE_URL = 'http://127.0.0.1:8000';
-
-export const API_BASE_URL = (
-  process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || LOCAL_API_BASE_URL
-).replace(/\/$/, '');
+export const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
 
 export class ApiError extends Error {
   constructor(

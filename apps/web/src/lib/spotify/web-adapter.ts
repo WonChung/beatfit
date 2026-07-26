@@ -68,7 +68,10 @@ export class WebSpotifyMusicService implements SpotifyMusicService {
     window.location.assign(url.toString());
   }
 
-  async completeAuthorization(search: URLSearchParams) {
+  async completeAuthorization(
+    search: URLSearchParams,
+    isCurrentBeatFitUser: () => Promise<boolean> = async () => true,
+  ) {
     const expectedState = window.sessionStorage.getItem(STATE_KEY);
     const expectedOwner = window.sessionStorage.getItem(PKCE_OWNER_KEY);
     const returnedState = search.get('state');
@@ -96,6 +99,18 @@ export class WebSpotifyMusicService implements SpotifyMusicService {
       redirect_uri: redirectUri,
       code_verifier: verifier,
     }));
+    let ownershipIsCurrent = false;
+    try {
+      ownershipIsCurrent = await isCurrentBeatFitUser();
+    } catch {
+      ownershipIsCurrent = false;
+    }
+    if (!ownershipIsCurrent) {
+      throw new SpotifyMusicError(
+        'Your BeatFit session changed during Spotify authorization. Please try again.',
+        'invalid_state',
+      );
+    }
     storeToken(payload, this.beatFitUserId);
     return 'authorized' as const;
   }

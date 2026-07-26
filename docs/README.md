@@ -1,9 +1,9 @@
 # BeatFit documentation
 
-This directory contains cross-platform provider architecture and build
-guidance. Setup and component-specific documentation stays beside the code it
-describes. The checked-in READMEs describe the current implementation; provider
-plans clearly label target or backlog behavior.
+This directory indexes cross-platform architecture, provider, and build
+guidance. Component-specific setup stays beside the code it describes.
+Checked-in READMEs describe repository behavior, not a hosted deployment;
+provider plans label target and backlog work separately.
 
 ## Application guides
 
@@ -22,12 +22,38 @@ plans clearly label target or backlog behavior.
 - [Apple Music Phase A/B manual configuration](apple-music-build-setup.md)
 - [Spotify metadata integration](spotify-integration.md)
 
-Spotify provides authorization, paginated playlist metadata, artwork, duration,
-and track selection on mobile and web. Apple Music provides the same baseline on
-web and iOS development builds, but its current UIs load only the first page.
-The Apple Music Android native bridge and client UI for backend public catalog
-search remain backlog work. Playback, beat analysis, BPM detection, and
-playback-state synchronization are outside the implemented scope.
+Apple Music support is metadata-only: FastAPI issues developer tokens and
+provides authenticated catalog search, the web app browses library metadata
+through MusicKit JS, and the mobile native module browses library metadata on
+iOS. That native module is registered for iOS only; an Android bridge and client
+UI for backend catalog search remain backlog work.
+
+Spotify authorization and playlist metadata access run entirely in the web and
+mobile clients using Authorization Code with PKCE. BeatFit does not exchange or
+store Spotify tokens in FastAPI. Both clients support paginated playlist and
+track metadata, including artwork and duration where Spotify returns them.
+
+Neither provider integration plays music. In-app or synchronized playback,
+audio analysis, BPM and beat detection, and playback-state synchronization are
+outside the implemented scope.
+
+## Verified system boundaries
+
+- Workout generation is rules-based, not AI. It creates contiguous interval
+  timelines that end exactly at each song block's computed duration; supplying
+  the same `random_seed` for the same inputs and personalization state makes
+  exercise selection reproducible.
+- The web app uses cookie-backed Supabase sessions. FastAPI independently
+  verifies bearer JWTs against Supabase JWKS and derives record ownership from
+  the verified `sub` claim.
+- GitHub Actions runs backend checks against an isolated PostgreSQL test
+  database after applying and checking Alembic migrations. Separate mobile and
+  web jobs run dependency audits, linting, type checks, tests, and their
+  platform-specific build/export checks. Pull-request dependency review is
+  guarded off while this repository is private and activates automatically if
+  it becomes public. An eligible private repository can opt in only after an
+  administrator enables the required GitHub security product and updates that
+  guard.
 
 ## Where behavior lives
 

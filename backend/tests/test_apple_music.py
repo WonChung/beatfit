@@ -106,3 +106,5 @@ def test_developer_token_endpoint_never_returns_signing_credentials(client: Test
     )
     assert response.status_code == 200
     assert set(response.json()) == {"token", "expires_at"}
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["Pragma"] == "no-cache"

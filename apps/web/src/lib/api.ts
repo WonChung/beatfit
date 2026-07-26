@@ -8,12 +8,7 @@ import type {
   UserPreferencesUpdate,
   WorkoutSessionCreate,
 } from "@/types/workout";
-
-const LOCAL_API_BASE_URL = "http://127.0.0.1:8000";
-
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() || LOCAL_API_BASE_URL
-).replace(/\/$/, "");
+import { getApiBaseUrl } from "./api-config";
 
 export class ApiError extends Error {
   constructor(
@@ -30,8 +25,9 @@ export async function generateWorkout(
   fetcher: typeof fetch = fetch,
 ): Promise<GenerateWorkoutResponse> {
   let response: Response;
+  const url = `${getApiBaseUrl()}/workouts/generate`;
   try {
-    response = await fetcher(`${API_BASE_URL}/workouts/generate`, {
+    response = await fetcher(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(request),
@@ -136,11 +132,12 @@ async function requestJson<ResponseBody>(
   }
 
   let response: Response;
+  const url = `${getApiBaseUrl()}${path}`;
   try {
     const headers = new Headers(init.headers);
     if (init.body) headers.set("Content-Type", "application/json");
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-    response = await fetcher(`${API_BASE_URL}${path}`, { ...init, headers });
+    response = await fetcher(url, { ...init, headers });
   } catch {
     throw new ApiError("Could not reach the BeatFit API. Check that the backend is running.");
   }

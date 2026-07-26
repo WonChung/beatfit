@@ -16,7 +16,14 @@ import type {
 } from '@/types/workout';
 
 export const STORAGE_SCHEMA_VERSION = 1;
-export const STORAGE_KEY = '@beatfit/data';
+export const LEGACY_STORAGE_KEY = '@beatfit/data';
+const USER_STORAGE_KEY_PREFIX = `${LEGACY_STORAGE_KEY}/user`;
+
+export function storageKeyForUser(userId: string): string {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) throw new Error('A user ID is required for BeatFit storage.');
+  return `${USER_STORAGE_KEY_PREFIX}/${encodeURIComponent(normalizedUserId)}`;
+}
 
 export interface KeyValueStorage {
   getItem(key: string): Promise<string | null>;
@@ -40,8 +47,14 @@ export class UnsupportedStorageVersionError extends Error {
 export class BeatFitRepository {
   private operationQueue: Promise<unknown> = Promise.resolve();
   private sequence = 0;
+  private readonly storageKey: string;
 
-  constructor(private readonly storage: KeyValueStorage = AsyncStorage) {}
+  constructor(
+    userId: string,
+    private readonly storage: KeyValueStorage = AsyncStorage
+  ) {
+    this.storageKey = storageKeyForUser(userId);
+  }
 
   async read(): Promise<BeatFitStorageSchema> {
     await this.operationQueue.catch(() => undefined);
@@ -156,7 +169,7 @@ export class BeatFitRepository {
     const operation = this.operationQueue.then(async () => {
       const database = await this.readUnqueued();
       const [nextDatabase, result] = mutate(database);
-      await this.storage.setItem(STORAGE_KEY, JSON.stringify(nextDatabase));
+      await this.storage.setItem(this.storageKey, JSON.stringify(nextDatabase));
       return result;
     });
     this.operationQueue = operation.catch(() => undefined);
@@ -164,7 +177,7 @@ export class BeatFitRepository {
   }
 
   private async readUnqueued(): Promise<BeatFitStorageSchema> {
-    const rawValue = await this.storage.getItem(STORAGE_KEY);
+    const rawValue = await this.storage.getItem(this.storageKey);
     if (!rawValue) return emptyDatabase();
 
     let parsed: unknown;
@@ -182,7 +195,12 @@ export class BeatFitRepository {
   }
 }
 
-export const beatFitRepository = new BeatFitRepository();
+export function createBeatFitRepository(
+  userId: string,
+  storage: KeyValueStorage = AsyncStorage
+): BeatFitRepository {
+  return new BeatFitRepository(userId, storage);
+}
 
 export function migrateStorage(value: unknown): BeatFitStorageSchema {
   if (!isRecord(value)) return emptyDatabase();

@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "BeatFit",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/brand/beatfit-app-icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/brand/beatfit-app-icon.png",
       "bundleIdentifier": "com.beatfit.mobile",
       "infoPlist": {
         "NSAppleMusicUsageDescription": "BeatFit uses your Apple Music library so you can select songs for workouts."
@@ -17,16 +17,14 @@
     "android": {
       "package": "com.beatfit.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#101218",
+        "foregroundImage": "./assets/brand/beatfit-mark.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/brand/beatfit-app-icon.png"
     },
     "plugins": [
       "expo-router",
@@ -34,9 +32,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#101218",
+          "image": "./assets/brand/beatfit-mark.png",
+          "imageWidth": 220
         }
       ]
     ],

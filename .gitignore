@@ -237,8 +237,13 @@ out/
 .expo/
 .expo-shared/
 web-build/
-ios/
-android/
+# Generated application projects. Keep local Expo module source trackable.
+/apps/mobile/ios/
+/apps/mobile/android/
+
+# The Android Apple Music bridge is not shipped. Its local scaffold depends on
+# Apple's separately licensed MusicKit Authentication AAR and stays untracked.
+/apps/mobile/modules/beatfit-apple-music/android/
 
 # Metro / React Native
 .metro-health-check*
@@ -251,6 +256,18 @@ android/
 .env.test.local
 .env.production.local
 .env.*.local
+
+# Signing keys and platform credentials
+*.pem
+*.p8
+*.p12
+*.key
+*.jks
+*.keystore
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+service-account*.json
 
 # Python virtual environments
 .venv/

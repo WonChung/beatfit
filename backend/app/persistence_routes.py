@@ -32,6 +32,7 @@ from app.persistence_service import (
 
 router = APIRouter()
 Result = TypeVar("Result")
+MAX_PAGE_NUMBER = 1_000
 
 
 @router.post("/workouts", response_model=PersistedWorkout, status_code=status.HTTP_201_CREATED)
@@ -45,7 +46,7 @@ def persist_workout(
 
 @router.get("/workouts", response_model=Page[PersistedWorkout])
 def get_workouts(
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=MAX_PAGE_NUMBER),
     page_size: int = Query(default=20, ge=1, le=100),
     user: User = Depends(get_current_user),
     database: Session = Depends(get_db),
@@ -97,7 +98,7 @@ def patch_session(
 
 @router.get("/workout-sessions", response_model=Page[PersistedWorkoutSession])
 def get_sessions(
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=MAX_PAGE_NUMBER),
     page_size: int = Query(default=20, ge=1, le=100),
     user: User = Depends(get_current_user),
     database: Session = Depends(get_db),

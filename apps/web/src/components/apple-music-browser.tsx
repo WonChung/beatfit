@@ -6,8 +6,8 @@ import type { AppleMusicPlaylist, AppleMusicTrack } from '@/lib/apple-music/type
 import { toBeatFitSongs } from '@/lib/apple-music/types';
 import { WebAppleMusicService } from '@/lib/apple-music/web-adapter';
 
-export default function AppleMusicBrowser({ onSelect }: { onSelect: (songs: Song[]) => void }) {
-  const service = useMemo(() => new WebAppleMusicService(), []);
+export default function AppleMusicBrowser({ beatFitUserId, onSelect }: { beatFitUserId: string; onSelect: (songs: Song[]) => void }) {
+  const service = useMemo(() => new WebAppleMusicService(beatFitUserId), [beatFitUserId]);
   const [connected, setConnected] = useState(false);
   const [playlists, setPlaylists] = useState<AppleMusicPlaylist[]>([]);
   const [playlist, setPlaylist] = useState<AppleMusicPlaylist | null>(null);
@@ -26,8 +26,11 @@ export default function AppleMusicBrowser({ onSelect }: { onSelect: (songs: Song
   }
   async function disconnect() {
     setLoading(true); setError(null);
-    try { await service.disconnect(); setConnected(false); setPlaylists([]); setPlaylist(null); setTracks([]); setSelected(new Set()); onSelect([]); }
-    catch (caught) { setError(message(caught)); } finally { setLoading(false); }
+    try { await service.disconnect(); }
+    catch (caught) { setError(message(caught)); }
+    finally {
+      setConnected(false); setPlaylists([]); setPlaylist(null); setTracks([]); setSelected(new Set()); onSelect([]); setLoading(false);
+    }
   }
   async function openPlaylist(item: AppleMusicPlaylist) {
     setLoading(true); setError(null); setPlaylist(item); setSelected(new Set());

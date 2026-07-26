@@ -10,6 +10,7 @@
   --blue-dark: #243fc4;
   --lime: #c8f35a;
   --orange: #ff6b35;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 * { box-sizing: border-box; }

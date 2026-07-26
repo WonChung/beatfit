@@ -14,10 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { generatePersonalizedWorkout } from '@/services/api';
-import { spotifyMusicService } from '@/services/spotify';
 import { usePersistenceStore } from '@/state/persistence-store';
 import { usePreferences } from '@/state/preferences-store';
 import { useWorkoutStore } from '@/state/workout-store';
@@ -121,10 +120,20 @@ function WorkoutSetupScreen({
   const [errors, setErrors] = useState<WorkoutFormErrors>({});
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   async function handleSignOut() {
-    await spotifyMusicService.disconnect().catch(() => undefined);
-    await signOut();
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch {
+      setSignOutError('Could not sign out. Check your connection and try again.');
+    } finally {
+      setIsSigningOut(false);
+    }
   }
 
   async function handleGenerateWorkout() {
@@ -171,7 +180,7 @@ function WorkoutSetupScreen({
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'right', 'bottom', 'left']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardView}>
@@ -184,12 +193,24 @@ function WorkoutSetupScreen({
                 BeatFit
               </ThemedText>
               <ThemedText themeColor="textSecondary">
-                Turn one song into a timed workout.
+                Turn track durations into timed interval workouts.
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">{user?.email}</ThemedText>
-              <Pressable accessibilityRole="button" onPress={() => void handleSignOut()} style={styles.signOutButton}>
-                <ThemedText type="smallBold">Sign out</ThemedText>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ busy: isSigningOut, disabled: isSigningOut }}
+                disabled={isSigningOut}
+                onPress={() => void handleSignOut()}
+                style={styles.signOutButton}>
+                <ThemedText type="smallBold">
+                  {isSigningOut ? 'Signing out…' : 'Sign out'}
+                </ThemedText>
               </Pressable>
+              {signOutError ? (
+                <ThemedText accessibilityRole="alert" type="small" style={styles.errorText}>
+                  {signOutError}
+                </ThemedText>
+              ) : null}
             </View>
 
             <View style={styles.libraryLinks}>
@@ -525,7 +546,7 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.four,
+    paddingBottom: Spacing.four,
     gap: Spacing.four,
   },
   header: { gap: Spacing.one },

@@ -9,12 +9,16 @@ permissions:
 jobs:
   dependency-review:
     name: Review dependency changes
+    # GitHub exposes this API to public repositories. Private repositories need
+    # GitHub Code Security or Advanced Security, which this personal repository
+    # does not assume.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
       - name: Review dependency changes
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: moderate

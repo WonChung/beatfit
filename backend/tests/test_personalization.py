@@ -7,7 +7,14 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.api_models import GeneratedWorkout
+from app.api_models import (
+    MAX_EQUIPMENT_COUNT,
+    MAX_EXERCISE_ID_LENGTH,
+    MAX_PREFERENCE_EXERCISE_ID_COUNT,
+    MAX_SONG_DURATION_MS,
+    GeneratedWorkout,
+    UserPreferencesUpdate,
+)
 from app.auth import get_token_verifier
 from app.database import Base, get_db
 from app.exercise_catalog import EXERCISE_CATALOG
@@ -82,6 +89,52 @@ def test_preferences_have_safe_defaults_and_are_user_owned(client: TestClient):
         headers={"Authorization": "Bearer valid-user-two"},
     )
     assert other.json()["available_equipment"] == ["bodyweight"]
+
+
+def test_preference_payload_accepts_exact_schema_boundaries(client: TestClient):
+    exercise_id = "e" * MAX_EXERCISE_ID_LENGTH
+    payload = UserPreferencesUpdate(
+        available_equipment=["bodyweight", "dumbbells", "gym"],
+        avoided_exercise_ids=[exercise_id] * MAX_PREFERENCE_EXERCISE_ID_COUNT,
+        favorite_exercise_ids=[exercise_id] * MAX_PREFERENCE_EXERCISE_ID_COUNT,
+    )
+
+    assert len(payload.available_equipment or []) == MAX_EQUIPMENT_COUNT
+    assert len(payload.avoided_exercise_ids or []) == MAX_PREFERENCE_EXERCISE_ID_COUNT
+    assert len(payload.favorite_exercise_ids or []) == MAX_PREFERENCE_EXERCISE_ID_COUNT
+
+    response = client.put(
+        "/user-preferences",
+        json={
+            "available_equipment": ["bodyweight", "dumbbells", "gym"],
+            "avoided_exercise_ids": [EXERCISE_CATALOG[0].id] * MAX_PREFERENCE_EXERCISE_ID_COUNT,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["available_equipment"] == [
+        "bodyweight",
+        "dumbbells",
+        "gym",
+    ]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"available_equipment": ["bodyweight", "dumbbells", "gym", "bodyweight"]},
+        {"avoided_exercise_ids": ["core-plank"] * (MAX_PREFERENCE_EXERCISE_ID_COUNT + 1)},
+        {
+            "favorite_exercise_ids": ["e" * (MAX_EXERCISE_ID_LENGTH + 1)],
+        },
+    ],
+)
+def test_preference_payload_rejects_over_limits(
+    client: TestClient,
+    payload: dict,
+):
+    response = client.put("/user-preferences", json=payload)
+
+    assert response.status_code == 422
 
 
 def test_preferences_and_personalized_generation_require_authentication(
@@ -237,6 +290,25 @@ def test_unavailable_equipment_is_rejected_instead_of_overridden(client: TestCli
 
     assert response.status_code == 422
     assert "not available" in response.json()["detail"]
+
+
+def test_personalized_generation_uses_bounded_generation_request(client: TestClient):
+    valid_payload = _generate_payload()
+    valid_payload["songs"][0]["duration_ms"] = 1_200_000
+    over_limit_payload = _generate_payload()
+    over_limit_payload["songs"][0]["duration_ms"] = MAX_SONG_DURATION_MS + 1
+
+    valid_response = client.post(
+        "/workouts/generate/personalized",
+        json=valid_payload,
+    )
+    over_limit_response = client.post(
+        "/workouts/generate/personalized",
+        json=over_limit_payload,
+    )
+
+    assert valid_response.status_code == 200
+    assert over_limit_response.status_code == 422
 
 
 def test_high_impact_disabled_and_explicit_goal_and_muscle_remain(client: TestClient):

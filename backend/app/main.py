@@ -11,6 +11,7 @@ from app.observability import (
 from app.operational_routes import router as operational_router
 from app.persistence_routes import router as persistence_router
 from app.personalization_routes import router as personalization_router
+from app.request_limits import RequestBodyLimitMiddleware
 from app.routes import router
 
 
@@ -28,6 +29,7 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
     )
+    application.add_middleware(RequestBodyLimitMiddleware)
     application.add_middleware(RequestContextMiddleware)
     install_exception_handlers(application)
 

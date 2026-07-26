@@ -17,20 +17,14 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AuthProvider>
-        <PersistenceProvider>
-          <PreferencesProvider>
-            <WorkoutProvider>
-              <AnimatedSplashOverlay />
-              <AuthenticatedStack />
-            </WorkoutProvider>
-          </PreferencesProvider>
-        </PersistenceProvider>
+        <AnimatedSplashOverlay />
+        <AccountBoundary />
       </AuthProvider>
     </ThemeProvider>
   );
 }
 
-function AuthenticatedStack() {
+function AccountBoundary() {
   const { session, isRestoring } = useAuth();
   if (isRestoring) {
     return (
@@ -39,6 +33,23 @@ function AuthenticatedStack() {
       </View>
     );
   }
+
+  if (!session) return <AuthenticatedStack />;
+
+  const userId = session.user.id;
+  return (
+    <PersistenceProvider key={userId} userId={userId}>
+      <PreferencesProvider>
+        <WorkoutProvider>
+          <AuthenticatedStack />
+        </WorkoutProvider>
+      </PreferencesProvider>
+    </PersistenceProvider>
+  );
+}
+
+function AuthenticatedStack() {
+  const { session } = useAuth();
   return (
     <Stack>
       <Stack.Protected guard={!session}>

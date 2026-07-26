@@ -11,7 +11,9 @@ Router typed routes, and TypeScript 6.
 The app uses Expo Router with typed routes. Application routes live in
 `src/app`, reusable UI in `src/components`, API and provider adapters in
 `src/services`, typed state providers in `src/state`, and device persistence in
-`src/storage`.
+`src/storage`. After authentication, the app opens directly into BeatFit's
+workout setup flow and uses stack routes for preview, playback controls, saved
+workouts, history, settings, and music-provider selection.
 
 ## Prerequisites
 
@@ -68,6 +70,15 @@ be public configuration, never credentials.
 | `EXPO_PUBLIC_SPOTIFY_CLIENT_ID` | For Spotify | Public Spotify application client ID used by Authorization Code with PKCE. |
 | `EXPO_PUBLIC_SPOTIFY_REDIRECT_URI` | For Spotify | Redirect URI registered exactly in the Spotify Developer Dashboard and in the installed app build. |
 
+Supabase configuration accepts an HTTPS origin, or loopback HTTP for a local
+Supabase instance. Placeholder values, `sb_secret_` keys, and legacy
+service-role JWTs are rejected. Missing or invalid values leave authentication
+safely unconfigured so module imports and Expo exports can still complete; they
+do not enable authentication. Production BeatFit API origins must still use
+trusted HTTPS. Malformed, non-HTTP, credential-bearing, query-bearing, or
+fragment-bearing API base URLs are discarded instead of being embedded in
+requests.
+
 Restart Expo after changing environment variables. Never put Supabase service
 keys, Spotify client secrets, Apple private keys, Apple signing credentials, or
 provider access tokens in `.env.local`.
@@ -101,6 +112,19 @@ active, and exposes email/password sign-up, sign-in, and sign-out. The sign-in
 screen is the only unauthenticated route; workout, provider, preferences,
 saved-workout, history, and player screens are inside `Stack.Protected`.
 
+On iOS and Android, Supabase session data is stored with `expo-secure-store`.
+Apple keychain writes use the device-only, when-unlocked accessibility class.
+The storage adapter checks protected storage first and performs a one-time
+migration from the legacy AsyncStorage entry when needed. It removes the
+unprotected entry only after the protected write succeeds; logout removes both
+copies. Expo web keeps Supabase's browser storage behavior.
+
+Authentication transitions also define the lifetime of account-owned client
+state. The account boundary remounts workout, persistence, and preference state
+when the authenticated user changes. Explicit logout and detected account
+switches centrally disconnect Apple Music and Spotify state. Provider cleanup
+is best-effort so a provider error cannot leave the Supabase session signed in.
+
 Email confirmation follows the Supabase project's Auth settings. The mobile app
 uses the public Supabase key only. Backend requests that need an account include
 the current access token, and the backend derives ownership from the verified
@@ -133,28 +157,29 @@ and work/rest intensity; personalization can also be reset.
 
 - `WorkoutProvider` owns the current request, generated workout, selected songs,
   and active/completed session in memory.
-- `PersistenceProvider` exposes local saved-workout and history operations.
+- `PersistenceProvider` is mounted for the authenticated user and exposes local
+  saved-workout and history operations for that account.
 - `PreferencesProvider` loads and updates account preferences through the API.
 - `BeatFitRepository` is the only layer that directly reads and writes workout
   data in AsyncStorage.
 
-Local data uses the `@beatfit/data` key and schema version `1`, containing
-`generatedWorkouts`, `savedWorkouts`, and `sessions`. Reads migrate the legacy
-version-0 shape, discard malformed records, and deduplicate IDs. Add future
-migrations to `migrateStorage` before increasing `STORAGE_SCHEMA_VERSION`.
+Each account uses an encoded, user-ID-scoped
+`@beatfit/data/user/<user-id>` key. Its schema version is `1` and contains
+`generatedWorkouts`, `savedWorkouts`, and `sessions`. Reads migrate the
+version-0 shape within that account's store, discard malformed records, and
+deduplicate IDs. Add future migrations to `migrateStorage` before increasing
+`STORAGE_SCHEMA_VERSION`.
 
-AsyncStorage is unencrypted and device-local. The workout repository is not
-partitioned by BeatFit user, so switching accounts on the same app installation
-does not isolate locally generated workouts, saved workouts, or history. Treat
-that store as single-user MVP data, clear app storage on a shared device, and
-add an account-keyed migration before claiming multi-user local isolation.
+The old unscoped `@beatfit/data` entry is deliberately not read or imported:
+its owner cannot be established safely. It remains quarantined from every
+account instead of risking data exposure during an upgrade. Consequently,
+workouts saved by older app versions are not automatically recovered into a
+new account-scoped store.
 
 Completed sessions and feedback attempt account sync when the generated workout
 has a backend ID; local history remains available when sync fails. The current
-Supabase React Native client also persists its auth session through
-AsyncStorage. Replace that auth storage adapter with platform-protected storage
-before treating native session tokens as production-hardened. Spotify tokens
-already use SecureStore and are bound to the active BeatFit user.
+workout repository remains unencrypted and device-local because it uses
+AsyncStorage; it is separate from protected Supabase and provider credentials.
 
 ## Music metadata providers
 
@@ -175,16 +200,20 @@ service contract preserves Apple's next-page token. It requires:
 - an Apple Developer identifier and MusicKit capability/entitlement;
 - iOS 16 or newer, matching the local module podspec;
 - the usage description already declared in `app.json`;
-- a BeatFit development build or production native build;
-- a signed backend developer-token endpoint where the platform requires a
-  developer token.
+- a BeatFit development build or production native build.
 
-The private Apple key and signing credentials belong only on the backend. Expo
-Go cannot load `BeatFitAppleMusic`, and the mobile app does not currently expose
-the backend's public catalog-search endpoint as an Expo Go fallback. The Android
-directory is a native integration scaffold that expects Apple's approved
-MusicKit authentication AAR; its native module still needs completing before
-the feature is usable there. See the repository's
+Apple Music authorization and the device's Apple Music account remain
+system-managed. BeatFit additionally stores a logical owner binding in
+SecureStore. If the active BeatFit user does not match that binding, the adapter
+clears its logical connection before returning library metadata. This prevents
+one BeatFit account from inheriting another account's in-app provider state; it
+does not change the device-level Apple authorization.
+
+The local module is Apple-only and is not registered on Android. Expo Go cannot
+load `BeatFitAppleMusic`, and the mobile app does not currently expose the
+backend's public catalog-search endpoint as an Expo Go fallback. Apple private
+keys and signing credentials must never be bundled in the client. See the
+repository's
 [`apple-music-build-setup.md`](../../docs/apple-music-build-setup.md) for the
 manual Apple Developer and native-build checklist.
 
@@ -196,6 +225,12 @@ the active BeatFit user. Configure the exact redirect URI and add test accounts
 as development users in Spotify's dashboard while the application remains in
 Development Mode. The default `mobile://spotify-callback` custom scheme is for
 an installed app/development build, not Expo Go.
+
+That custom scheme is suitable for local development but can be claimed by
+another installed application. Before a production release, prefer a claimed
+HTTPS universal/app link supported by the provider and register that exact URI.
+The Expo linking configuration, environment value, installed binary, and
+Spotify dashboard must agree whenever the redirect URI changes.
 
 The adapter handles token refresh, pagination, cancellation, unavailable and
 local tracks, missing scopes, network failures, and rate limits. Disconnecting
@@ -256,43 +291,48 @@ Run all mobile checks from `apps/mobile`:
 npm run lint
 npm run typecheck
 npm test
+npm run verify:native-module
+npm run export:ios
 ```
 
-Jest uses `jest-expo`, runs serially, and mocks AsyncStorage. Provider tests use
-fixtures and mock adapters; normal test runs do not require Apple Music, Spotify,
-Supabase, or a real provider account.
+Jest uses `jest-expo`, runs serially, and mocks native storage and provider
+adapters; normal test runs do not require Apple Music, Spotify, Supabase, or a
+real provider account. The suite covers protected-session migration and
+cleanup, session restoration, logout and account switching, user-scoped workout
+storage and legacy-data quarantine, and Apple Music logical-owner enforcement.
 
-Verify Metro can bundle a platform, including all local SVGs, with:
+`verify:native-module` checks that the Apple Music module is available to the
+Apple autolinking configuration and absent from Android. `export:ios` verifies
+that Metro can bundle the iOS JavaScript and assets, including local SVGs, into
+the ignored `dist` directory. To export every JavaScript target explicitly, use:
 
 ```bash
-npx expo export --platform ios --output-dir dist
+npx expo export --platform all --output-dir dist
 ```
 
-Use `--platform android` or `--platform web` for another target. `dist` is a
-generated, ignored directory. An export verifies the JavaScript/assets bundle;
-it does not compile or validate custom native modules. Build and run the native
-project when testing Apple Music or custom URL schemes:
+An export does not compile native code. Build and run the relevant installed
+app when testing Apple Music or custom OAuth URL handling:
 
 ```bash
 npx expo run:ios
 npx expo run:android
 ```
 
+Apple Music itself must be validated with the iOS build; the Android command is
+for the rest of the Android app and installed-app OAuth behavior.
+
 ## Known limitations
 
 - There is no Apple Music or Spotify playback, audio analysis, or playback-state
   synchronization.
-- Apple Music is unavailable in Expo Go and its Android native adapter is not
-  complete. Mobile Apple library screens do not load subsequent pages or expose
-  backend public catalog search.
+- Apple Music library access is Apple-only, requires iOS 16 or newer, and is
+  unavailable on Android and in Expo Go. Mobile Apple library screens do not
+  load subsequent pages or expose backend public catalog search.
 - The active timer recalculates from wall-clock timestamps when foregrounded,
   but the JavaScript process does not execute reliably in the background.
   Haptics, UI updates, and completion navigation can be delayed until foreground.
 - Workout persistence is local-first, is not a complete cross-device cache,
-  and is not partitioned by BeatFit account on a shared installation.
-- Native Supabase sessions currently use AsyncStorage rather than a
-  platform-protected storage adapter.
+  and stores account-scoped workout data unencrypted in AsyncStorage on the
+  device.
 - Exercise silhouettes are generic static posture placeholders and do not yet
   demonstrate each exercise's full movement or form.
-- The Explore tab still contains Expo-oriented reference content and is not a
-  finished BeatFit product surface.
