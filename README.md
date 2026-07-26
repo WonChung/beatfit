@@ -269,10 +269,8 @@ repository permission and no Supabase or music-provider credentials:
 - Web: npm dependency audit, ESLint, TypeScript, Vitest, and a production Next.js
   build.
 
-When the repository is public, the separate dependency-review workflow rejects
-pull requests that introduce known moderate-or-higher dependency
-vulnerabilities. GitHub does not expose that action to an ordinary private
-personal repository, so the job is skipped while this repository is private.
+The separate dependency-review workflow runs on pull requests and rejects
+dependency changes that introduce known moderate-or-higher vulnerabilities.
 Dependabot checks Python, both npm applications, and GitHub Actions weekly.
 
 The badge at the top reflects the latest workflow run available on GitHub. It

@@ -57,11 +57,9 @@ Repository administrators should enable and monitor:
 Secret scanning and push protection are repository settings, not substitutes
 for a CI workflow; they must be enabled explicitly in GitHub. The checked-in
 [dependency review workflow](workflows/dependency-review.yml) evaluates pull
-request dependency changes when the repository is public. Its API is not
-available to an ordinary private personal repository, so that job skips until
-the repository is public. An eligible private repository can opt in after its
-administrator enables the required GitHub security product and deliberately
-updates the workflow guard.
+request dependency changes and rejects known moderate-or-higher
+vulnerabilities.
+
 [Dependabot configuration](dependabot.yml) checks backend, mobile, web, and
 GitHub Actions dependencies.
 

@@ -9,9 +9,8 @@ permissions:
 jobs:
   dependency-review:
     name: Review dependency changes
-    # GitHub exposes this API to public repositories. Private repositories need
-    # GitHub Code Security or Advanced Security, which this personal repository
-    # does not assume.
+    # Dependency review is available for public repositories. Eligible private
+    # repositories require GitHub Code Security or Advanced Security.
     if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     steps:
