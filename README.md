@@ -44,6 +44,43 @@ The repository is designed to demonstrate more than a UI flow:
 | Web | Authenticated dashboard, setup and generation, preview, timestamp-based timer, server-backed completion feedback, preferences, exercise demonstrations, and optional provider metadata selection. |
 | Backend | Exercise catalog, deterministic generation and personalization, JWT verification, ownership-scoped persistence, Apple developer-token/catalog endpoints, request observability, and health/readiness endpoints. |
 
+## Product walkthrough
+
+### Generate a duration-matched workout
+
+BeatFit builds a deterministic sequence of warmup, work, rest, and burnout
+intervals that fits the selected track duration while respecting workout
+preferences and exercise constraints.
+
+![BeatFit generated workout preview](docs/assets/beatfit-workout-preview.png)
+
+### Configure the session
+
+Choose a muscle group, difficulty, equipment, workout goal, and track metadata.
+
+![BeatFit workout setup](docs/assets/beatfit-workout-setup.png)
+
+### Follow the active workout
+
+The workout view displays the current exercise, remaining interval time,
+overall progress, upcoming interval, and interval controls.
+
+![BeatFit active workout](docs/assets/beatfit-active-workout.png)
+
+### Use BeatFit on mobile
+
+The Expo application provides a mobile-optimized workout experience with
+interval timing, progress tracking, upcoming-interval guidance, and workout
+controls.
+
+<p align="center">
+  <img
+    src="docs/assets/beatfit-mobile-active-workout.png"
+    alt="BeatFit mobile active workout"
+    width="320"
+  />
+</p>
+
 ## Architecture
 
 ```mermaid
@@ -103,13 +140,6 @@ On native mobile, Supabase session data is stored through `expo-secure-store`,
 including migration from the earlier AsyncStorage adapter. Generated workouts,
 named saves, and local history remain device-local in user-keyed AsyncStorage
 namespaces. Those workout records are account-isolated but not encrypted.
-
-## Demo
-
-![BeatFit web authentication entry point](docs/assets/beatfit-web-sign-in.png)
-
-_The web authentication entry point. The repository does not currently claim a
-hosted deployment or public live demo._
 
 ## Repository layout
 
