@@ -43,9 +43,9 @@ outside the implemented scope.
   timelines that end exactly at each song block's computed duration; supplying
   the same `random_seed` for the same inputs and personalization state makes
   exercise selection reproducible.
-- The web app uses per-tab `sessionStorage` for Supabase session persistence.
-  FastAPI independently verifies bearer JWTs against Supabase JWKS and derives
-  record ownership from the verified `sub` claim.
+- The web app uses cookie-backed Supabase sessions with server-side refresh and
+  protected-route checks. FastAPI independently verifies bearer JWTs against
+  Supabase JWKS and derives record ownership from the verified `sub` claim.
 - GitHub Actions runs backend checks against an isolated PostgreSQL test
   database after applying and checking Alembic migrations. Separate mobile and
   web jobs run dependency audits, linting, type checks, tests, and their
