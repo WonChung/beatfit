@@ -48,12 +48,10 @@ outside the implemented scope.
   the verified `sub` claim.
 - GitHub Actions runs backend checks against an isolated PostgreSQL test
   database after applying and checking Alembic migrations. Separate mobile and
-  web jobs run dependency audits, linting, type checks, tests, and their
-  platform-specific build/export checks. Pull-request dependency review is
-  guarded off while this repository is private and activates automatically if
-  it becomes public. An eligible private repository can opt in only after an
-  administrator enables the required GitHub security product and updates that
-  guard.
+  web jobs run dependency audits, linting, type checks, tests, and their 
+- platform-specific build/export checks. Pull-request dependency review runs on
+  public repository pull requests and rejects dependency changes that introduce
+  known moderate-or-higher vulnerabilities.
 
 ## Where behavior lives
 
