@@ -6,6 +6,8 @@
     "@expo/ui": "~57.0.4",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.110.2",
+    "brace-expansion": "file:../../packages/brace-expansion-compat",
+    "brace-expansion-patched": "npm:brace-expansion@5.0.8",
     "expo": "~57.0.4",
     "expo-constants": "~57.0.3",
     "expo-crypto": "~57.0.0",
@@ -50,10 +52,13 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest --runInBand",
+    "verify:dependency-compat": "node ../../packages/brace-expansion-compat/verify-installed.cjs",
     "verify:native-module": "node ./scripts/verify-native-module-autolinking.mjs",
     "export:ios": "expo export --platform ios --output-dir dist"
   },
   "overrides": {
+    "brace-expansion": "$brace-expansion",
+    "postcss": "8.5.23",
     "xcode": {
       "uuid": "11.1.1"
     }

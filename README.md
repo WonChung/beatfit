@@ -118,6 +118,7 @@ apps/mobile/  Expo Router mobile application and local iOS MusicKit module
 apps/web/     Next.js App Router web application
 backend/      FastAPI application, SQLAlchemy models, Alembic migrations, Compose
 docs/         Provider architecture, build guidance, and portfolio assets
+packages/     Small internal compatibility boundaries shared by application locks
 ```
 
 The root `Makefile` coordinates the independently locked mobile and web npm
@@ -230,8 +231,10 @@ Validate the additional repository and mobile build boundaries used by CI:
 ```bash
 docker compose -f backend/compose.yaml config --quiet
 backend/.venv/bin/pip-audit -r backend/requirements.txt
+npm --prefix apps/mobile run verify:dependency-compat
 npm --prefix apps/mobile run verify:native-module
 npm --prefix apps/mobile run export:ios
+npm --prefix apps/web run verify:dependency-compat
 ```
 
 The autolinking check confirms that the checked-in BeatFit Apple Music module is

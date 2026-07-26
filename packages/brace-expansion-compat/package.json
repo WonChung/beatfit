@@ -1,0 +1,13 @@
+{
+  "name": "brace-expansion",
+  "version": "5.0.8-beatfit.0",
+  "private": true,
+  "description": "CommonJS compatibility adapter for the patched brace-expansion implementation",
+  "main": "index.cjs",
+  "engines": {
+    "node": "20 || >=22"
+  },
+  "peerDependencies": {
+    "brace-expansion-patched": "npm:brace-expansion@5.0.8"
+  }
+}

@@ -107,6 +107,9 @@ jobs:
       - name: Audit mobile dependencies
         run: npm audit --audit-level=high
 
+      - name: Verify patched dependency compatibility
+        run: npm run verify:dependency-compat
+
       - name: Run mobile lint
         run: npm run lint
 
@@ -150,6 +153,9 @@ jobs:
 
       - name: Audit web dependencies
         run: npm audit --audit-level=high
+
+      - name: Verify patched dependency compatibility
+        run: npm run verify:dependency-compat
 
       - name: Run web lint
         run: npm run lint
