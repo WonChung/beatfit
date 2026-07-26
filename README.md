@@ -361,9 +361,9 @@ ownership behavior, migrations, and reset procedures.
 - [Mobile exercise animations](apps/mobile/assets/exercise-animations/README.md)
 - [Web exercise animations](apps/web/public/exercise-animations/README.md)
 
-## License status
+## License
 
-No repository-wide software license has been selected. The former Expo template
-license was removed because it described Expo's copyright rather than granting
-terms for BeatFit. Choose and add the intended license before inviting reuse or
-external contributions.
+BeatFit is available under the [MIT License](LICENSE).
+
+Portions of the mobile application derived from the Expo template remain
+subject to Expo's MIT license in [`apps/mobile/LICENSE`](apps/mobile/LICENSE).
