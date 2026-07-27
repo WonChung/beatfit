@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.4",
-    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-async-storage/async-storage": "3.1.1",
     "@supabase/supabase-js": "^2.110.2",
     "brace-expansion": "file:../../packages/brace-expansion-compat",
     "brace-expansion-patched": "npm:brace-expansion@5.0.8",
