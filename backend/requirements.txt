@@ -1,4 +1,4 @@
-fastapi[standard]>=0.139,<0.140
+fastapi[standard]>=0.141.1,<0.142
 SQLAlchemy>=2.0,<2.1
 alembic>=1.16,<2
 psycopg[binary]>=3.2,<4
